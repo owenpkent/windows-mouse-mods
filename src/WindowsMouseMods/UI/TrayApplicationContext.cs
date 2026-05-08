@@ -78,7 +78,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         var status = !_settings.Enabled ? "disabled"
             : _controller.Locked ? "locked"
             : "ready";
-        _trayIcon.Text = $"Windows Mouse Mods — {status}";
+        _trayIcon.Text = $"Windows Mouse Mods - {status}";
         _trayIcon.Icon = _controller.Locked ? _iconLocked : _iconIdle;
     }
 

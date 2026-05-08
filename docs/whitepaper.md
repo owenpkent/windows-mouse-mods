@@ -1,4 +1,4 @@
-# Windows Mouse Mods — Technical White Paper
+# Windows Mouse Mods: Technical White Paper
 
 **Version:** 0.1
 **Audience:** Developers and technically-curious users who want to understand how the tool works under the hood.
@@ -21,9 +21,9 @@ Sustained right-click is the de-facto camera gesture in a wide swath of PC games
 
 The Windows ClickLock implementation is hard-coded for the primary button. There is no public API to extend it to the secondary button, and no Group Policy / registry knob switches it. The remaining options are user-mode software:
 
-- **AutoHotkey scripts** — work, but distribution is awkward and the script must be running with appropriate privileges.
-- **Game-specific rebinds** — only when a game exposes "toggle camera" as a separate input.
-- **Bespoke utilities** — what this project is.
+- **AutoHotkey scripts.** Work, but distribution is awkward and the script must be running with appropriate privileges.
+- **Game-specific rebinds.** Only when a game exposes "toggle camera" as a separate input.
+- **Bespoke utilities.** What this project is.
 
 ## 2. Approach
 
@@ -39,13 +39,13 @@ With those two primitives, the core ClickLock behavior is a 5-state machine plus
 The codebase is layered bottom-up:
 
 ```
-Native    — P/Invoke surface, MOUSEINPUT injection, magic-tag constant
-Hooks     — object wrappers for WH_MOUSE_LL with Suppress-flag events
-Core      — pure logic: state machine, settings, autostart, crash flag
-UI        — TrayApplicationContext, MainForm (settings), DebugForm (live)
+Native    : P/Invoke surface, MOUSEINPUT injection, magic-tag constant
+Hooks     : object wrappers for WH_MOUSE_LL with Suppress-flag events
+Core      : pure logic: state machine, settings, autostart, crash flag
+UI        : TrayApplicationContext, MainForm (settings), DebugForm (live)
 ```
 
-Each layer has a single responsibility and depends only on the layers below it. The Core layer has no UI dependency, so the state machine could in principle be unit-tested against a mock event source — that is intentional but not currently exercised.
+Each layer has a single responsibility and depends only on the layers below it. The Core layer has no UI dependency, so the state machine could in principle be unit-tested against a mock event source. That is intentional but not currently exercised.
 
 The application runs on the WinForms message loop. The `WH_MOUSE_LL` callback is invoked on the same thread as the message loop, which is the UI thread, so there is no cross-thread synchronization in the hot path. The DebugForm marshals to itself via `BeginInvoke` because it consumes hook events but lives in its own form lifecycle.
 
@@ -68,12 +68,12 @@ stateDiagram-v2
 
 Concrete code paths:
 
-- `Idle → Holding` — `HandlePhysicalRmbDown` records cursor position, starts the hold timer.
-- `Holding → MoveCancelled` — `HandlePhysicalMove` computes squared distance from the down position; if it exceeds `MoveCancelPixels²`, stops the timer and sets `_moveCancelled = true`.
-- `Holding → Armed` — the `WinForms.Timer` fires; `_clickLockArmed = true` if the user is still holding.
-- `Armed → Locked` — `HandlePhysicalRmbUp` sees `_clickLockArmed == true`, suppresses the UP, sets `_locked = true`, marks the held flag.
-- `Locked → Releasing` — `HandlePhysicalRmbDown` sees `_locked == true`, suppresses the DOWN, queues "swallow next UP", injects synthetic UP.
-- `Releasing → Idle` — the next physical UP arrives, is swallowed, state cleared.
+- `Idle → Holding`: `HandlePhysicalRmbDown` records cursor position, starts the hold timer.
+- `Holding → MoveCancelled`: `HandlePhysicalMove` computes squared distance from the down position; if it exceeds `MoveCancelPixels²`, stops the timer and sets `_moveCancelled = true`.
+- `Holding → Armed`: the `WinForms.Timer` fires; `_clickLockArmed = true` if the user is still holding.
+- `Armed → Locked`: `HandlePhysicalRmbUp` sees `_clickLockArmed == true`, suppresses the UP, sets `_locked = true`, marks the held flag.
+- `Locked → Releasing`: `HandlePhysicalRmbDown` sees `_locked == true`, suppresses the DOWN, queues "swallow next UP", injects synthetic UP.
+- `Releasing → Idle`: the next physical UP arrives, is swallowed, state cleared.
 
 The same exit paths are taken if the user toggles "Enabled" off, the workstation is locked (`SessionSwitch`), or the process is exiting.
 
@@ -89,7 +89,7 @@ dwExtraInfo = NativeMethods.InjectionTag; // 'WINM' = 0x57494E4D
 
 The hook's first check on every event is whether `MSLLHOOKSTRUCT.dwExtraInfo` matches the tag and skips the event entirely if so.
 
-A magic constant is sufficient because the only injectors of interest are this process and the user. Other tools (other AHK scripts, accessibility software) can collide, but the consequence is benign — at worst we ignore one of their events as if it were ours.
+A magic constant is sufficient because the only injectors of interest are this process and the user. Other tools (other AHK scripts, accessibility software) can collide, but the consequence is benign: at worst we ignore one of their events as if it were ours.
 
 ### 5.2 Hook callback delegate lifetime
 
@@ -106,23 +106,23 @@ This is the most common bug in low-level-hook code. It surfaces only after a GC,
 
 ### 5.3 Hook procedure exception isolation
 
-If an unhandled exception escapes a low-level hook procedure, Windows silently unhooks the procedure. The user observes "the app stopped working" with no error and no recourse other than a restart. The wrapper handles this with a defensive `try/catch` that swallows everything inside the procedure — we cannot meaningfully report an error from the hook thread, and continuing without observation is worse than continuing with a missed event.
+If an unhandled exception escapes a low-level hook procedure, Windows silently unhooks the procedure. The user observes "the app stopped working" with no error and no recourse other than a restart. The wrapper handles this with a defensive `try/catch` that swallows everything inside the procedure: we cannot meaningfully report an error from the hook thread, and continuing without observation is worse than continuing with a missed event.
 
 ### 5.4 Move-cancel rationale
 
-Real Windows ClickLock cancels arming if the cursor moves during the hold. Without this, a press-and-drag (e.g., a right-click drag-select in a game inventory) becomes a sticky lock — disorienting and a non-starter for daily use. The implementation:
+Real Windows ClickLock cancels arming if the cursor moves during the hold. Without this, a press-and-drag (e.g., a right-click drag-select in a game inventory) becomes a sticky lock, which is disorienting and a non-starter for daily use. The implementation:
 
 - Cursor position at RMB DOWN is captured from `MSLLHOOKSTRUCT.pt` (already in screen coordinates).
 - On every `WM_MOUSEMOVE` while the hold timer is running and not yet armed, we compute `dx² + dy²` and compare to `threshold²`.
 - Comparing squared distances avoids `sqrt` per move event.
 - Once cancelled, `_moveCancelled = true` short-circuits subsequent computations within the same hold; the flag clears on the next `RBUTTONDOWN`.
-- Once armed, motion no longer cancels — matches Windows ClickLock semantics and avoids "I locked it then moved 6 px and lost the lock" surprises.
+- Once armed, motion no longer cancels. This matches Windows ClickLock semantics and avoids "I locked it then moved 6 px and lost the lock" surprises.
 
 ## 6. Crash safety
 
 ### 6.1 The "stuck button" problem
 
-The tool's superpower — convincing the OS that RMB is held when it is not physically depressed — is also its sharpest hazard. If the process crashes or is force-killed while in `Locked`, the OS retains its belief that RMB is held until the user manually clicks. In a full-screen game, that can mean the camera spinning continuously until the user alt-tabs and clicks somewhere safe.
+The tool's superpower (convincing the OS that RMB is held when it is not physically depressed) is also its sharpest hazard. If the process crashes or is force-killed while in `Locked`, the OS retains its belief that RMB is held until the user manually clicks. In a full-screen game, that can mean the camera spinning continuously until the user alt-tabs and clicks somewhere safe.
 
 ### 6.2 Defenses
 
@@ -135,7 +135,7 @@ The tool installs four redundant emergency-release paths:
 | `Application.ApplicationExit` | WinForms message loop ending |
 | `Application.ThreadException` | UI-thread exceptions caught by WinForms |
 
-All four call `InputInjector.EmergencyRelease`, which checks an atomic `_heldFlag` and fires `SendInput(MOUSEEVENTF_RIGHTUP)` only if the OS is believed to be holding the button. The flag is a `Volatile.Read/Write` `int` — appropriate for a single-bit signal across threads (the listener thread, the hook thread, the UI thread, and the GC finalizer thread can all observe it).
+All four call `InputInjector.EmergencyRelease`, which checks an atomic `_heldFlag` and fires `SendInput(MOUSEEVENTF_RIGHTUP)` only if the OS is believed to be holding the button. The flag is a `Volatile.Read/Write` `int`, appropriate for a single-bit signal across threads (the listener thread, the hook thread, the UI thread, and the GC finalizer thread can all observe it).
 
 `SystemEvents.SessionSwitch` adds a fifth path: when Windows locks (`Win+L`) or the user logs off, we release explicitly so the user does not return from the lock screen with a synthetically-held button.
 
@@ -159,9 +159,9 @@ For a single boolean cross-process signal, an event handle is the cheapest optio
 
 ## 8. Atomic settings persistence
 
-`AppSettings.Save` writes to `settings.json.tmp` and then calls `File.Move(tmp, settings.json, overwrite: true)`. NTFS `MoveFileEx`-style replacement is atomic with respect to readers — partial writes are no longer visible. The clamp pass on load (`ClampInPlace`) bounds `ClickLockHoldMs` and `MoveCancelPixels` into sane ranges, so a hand-edited or migrated file cannot push out-of-range values into the UI or controller.
+`AppSettings.Save` writes to `settings.json.tmp` and then calls `File.Move(tmp, settings.json, overwrite: true)`. NTFS `MoveFileEx`-style replacement is atomic with respect to readers; partial writes are no longer visible. The clamp pass on load (`ClampInPlace`) bounds `ClickLockHoldMs` and `MoveCancelPixels` into sane ranges, so a hand-edited or migrated file cannot push out-of-range values into the UI or controller.
 
-A `.bak` rotation policy was considered and skipped — corrupt JSON falls back to defaults silently, and the user can always re-set values from the settings UI.
+A `.bak` rotation policy was considered and skipped: corrupt JSON falls back to defaults silently, and the user can always re-set values from the settings UI.
 
 ## 9. Performance
 
@@ -179,8 +179,8 @@ The DebugForm subscribes to a separate `DebugMessage` string event and marshals 
 ## 10. Compatibility
 
 - **Operating systems:** Windows 10 and 11. The manifest declares both. Earlier OS versions are out of scope.
-- **Bitness:** AnyCPU build runs as x64 on a 64-bit OS. 32-bit games still receive the synthesized RMB events because `SendInput` operates at the OS-input layer, not the process address space. Hooks installed by a 64-bit process cover 64-bit processes only, which is fine for modern games but means a 32-bit DirectX game would not see hook-suppressed events from a 64-bit instance — in practice every shipping game is 64-bit, so this is rarely relevant.
-- **Games:** Any game that consumes standard Windows mouse messages works. Games that use Raw Input with `RIDEV_NOLEGACY` (i.e. opt out of WM_MOUSE messages entirely) bypass the suppression mechanism — for those, this tool effectively does nothing, with no negative side effects.
+- **Bitness:** AnyCPU build runs as x64 on a 64-bit OS. 32-bit games still receive the synthesized RMB events because `SendInput` operates at the OS-input layer, not the process address space. Hooks installed by a 64-bit process cover 64-bit processes only, which is fine for modern games but means a 32-bit DirectX game would not see hook-suppressed events from a 64-bit instance. In practice every shipping game is 64-bit, so this is rarely relevant.
+- **Games:** Any game that consumes standard Windows mouse messages works. Games that use Raw Input with `RIDEV_NOLEGACY` (i.e. opt out of WM_MOUSE messages entirely) bypass the suppression mechanism. For those, this tool effectively does nothing, with no negative side effects.
 - **Anti-cheat:** Synthesized input is detectable. This tool is intended for single-player and cooperative play. Using it in environments where automation is disallowed is the user's responsibility.
 
 ## 11. Limitations
@@ -189,16 +189,16 @@ The DebugForm subscribes to a separate `DebugMessage` string event and marshals 
 - No panic hotkey (planned, not implemented).
 - No support for additional mouse buttons (`XButton1`/`XButton2`).
 - No installer; the executable is run in place.
-- No telemetry, by design — but also no diagnostics in the field other than the live debug window.
+- No telemetry, by design, and also no diagnostics in the field other than the live debug window.
 
 ## 12. Future work
 
 Concrete additions on the roadmap, ordered by current usefulness:
 
-1. **Panic hotkey** — system-wide key (e.g. `Ctrl+Alt+R`) that force-releases regardless of state.
-2. **GitHub Release artifact** — workflow that publishes a single-file `.exe` on tag push.
-3. **Per-process allowlist/blocklist** — only auto-engage in selected foreground processes.
-4. **Optional file logging** — persistent debug output for after-the-fact diagnosis.
+1. **Panic hotkey.** System-wide key (e.g. `Ctrl+Alt+R`) that force-releases regardless of state.
+2. **GitHub Release artifact.** Workflow that publishes a single-file `.exe` on tag push.
+3. **Per-process allowlist/blocklist.** Only auto-engage in selected foreground processes.
+4. **Optional file logging.** Persistent debug output for after-the-fact diagnosis.
 
 ## References
 
@@ -206,4 +206,4 @@ Concrete additions on the roadmap, ordered by current usefulness:
 2. Microsoft Learn, *SendInput function (winuser.h).*
 3. Microsoft Learn, *MSLLHOOKSTRUCT structure.*
 4. Microsoft Learn, *Mouse Properties: ClickLock.*
-5. Raymond Chen, *The Old New Thing — keeping a hook delegate alive.*
+5. Raymond Chen, *The Old New Thing: keeping a hook delegate alive.*

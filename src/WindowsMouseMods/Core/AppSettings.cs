@@ -48,7 +48,7 @@ public sealed class AppSettings
         }
         catch
         {
-            // Corrupt file — fall through to defaults. (Possible recovery: restore from .bak.)
+            // Corrupt file. Fall through to defaults. (Possible recovery: restore from .bak.)
         }
         return new AppSettings();
     }

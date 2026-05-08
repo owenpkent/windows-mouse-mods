@@ -1,18 +1,18 @@
-# Windows Mouse Mods — Usage Guide
+# Windows Mouse Mods: Usage Guide
 
 A practical, end-user walkthrough. For the design rationale and implementation details, see [whitepaper.md](whitepaper.md).
 
 ## Quick start
 
 1. Run `WindowsMouseMods.exe`. The settings window opens; defaults are sensible.
-2. In a game (or any window): **press and hold the right mouse button for half a second, then release**. The tray icon turns red and the right button stays "held" — move your mouse to look around.
+2. In a game (or any window): **press and hold the right mouse button for half a second, then release**. The tray icon turns red and the right button stays "held"; move your mouse to look around.
 3. **Click the right mouse button again** to release the lock and return to normal.
 
 That's the whole feature. Everything else is configuration and operational hygiene.
 
 ## Installation
 
-### Option A — Build from source
+### Option A. Build from source
 
 You need the .NET 9 SDK on Windows. Install via winget:
 
@@ -30,7 +30,7 @@ dotnet build src\WindowsMouseMods\WindowsMouseMods.csproj -c Release
 
 The output is at `src\WindowsMouseMods\bin\Release\net9.0-windows\WindowsMouseMods.exe`.
 
-### Option B — Single-file publish
+### Option B. Single-file publish
 
 Produces a self-contained `.exe` you can copy anywhere:
 
@@ -41,7 +41,7 @@ dotnet publish src\WindowsMouseMods\WindowsMouseMods.csproj `
 
 Output lands in `src\WindowsMouseMods\bin\Release\net9.0-windows\win-x64\publish\`.
 
-### Option C — Root-level shortcut (dev)
+### Option C. Root-level shortcut (dev)
 
 After building, run the helper script to drop a `.lnk` at the repo root that targets the latest Release build:
 
@@ -55,7 +55,7 @@ The `.lnk` is gitignored (absolute paths are machine-specific).
 
 You'll see two things:
 
-- A **tray icon** — a stylized mouse silhouette. The right button is steel-blue when idle, vivid red when locked.
+- A **tray icon**, a stylized mouse silhouette. The right button is steel-blue when idle, vivid red when locked.
 - A **settings window**. If you'd rather skip it on launch, check "Start minimized to tray" and save.
 
 The default configuration:
@@ -71,7 +71,7 @@ The default configuration:
 ### Engaging the lock
 
 1. Press and hold the right mouse button.
-2. Hold steady for the configured threshold (default 500 ms). If the cursor moves more than 5 px during the hold, arming is cancelled — that becomes a normal drag.
+2. Hold steady for the configured threshold (default 500 ms). If the cursor moves more than 5 px during the hold, arming is cancelled, so the gesture becomes a normal drag.
 3. Release the button while keeping the cursor mostly still. The tray icon turns red. The OS now perceives RMB as continuously held.
 
 ### Releasing the lock
@@ -105,10 +105,10 @@ Settings are saved to `%APPDATA%\WindowsMouseMods\settings.json`. The file is hu
 
 Right-click the tray icon:
 
-- **Enabled** — toggle without opening settings.
-- **Settings...** — open the settings window.
-- **Show debug window** — open the live event stream (also available from the settings window).
-- **Exit** — quit the app immediately, no prompt. Settings window's title-bar close shows a Minimize/Exit/Cancel dialog instead, since users often hit X without meaning to quit a tray app.
+- **Enabled.** Toggle without opening settings.
+- **Settings...** Open the settings window.
+- **Show debug window.** Open the live event stream (also available from the settings window).
+- **Exit.** Quit the app immediately, no prompt. Settings window's title-bar close shows a Minimize/Exit/Cancel dialog instead, since users often hit X without meaning to quit a tray app.
 
 Double-click the tray icon to open settings.
 
@@ -131,9 +131,9 @@ What it logs:
 
 Controls:
 
-- **Pause** — freeze the stream while you read; subsequent events queue up only as a counter (the line is dropped, not buffered, to keep memory bounded).
-- **Clear** — wipe the buffer.
-- **Auto-scroll** — toggle; defaults on. Turn off if you want to read older lines without the view jumping.
+- **Pause.** Freeze the stream while you read; subsequent events queue up only as a counter (the line is dropped, not buffered, to keep memory bounded).
+- **Clear.** Wipe the buffer.
+- **Auto-scroll.** Toggle; defaults on. Turn off if you want to read older lines without the view jumping.
 
 The window remembers itself across launches: if it was open when the app exits, it auto-opens on the next launch.
 
@@ -141,16 +141,16 @@ The window remembers itself across launches: if it was open when the app exits, 
 
 The debug window is the right tool if the lock isn't engaging when you expect it to:
 
-- Press and hold RMB. If you see "ClickLock armed" but no "LOCKED" — the cursor moved past the threshold during release. Either steady your hand or raise the move threshold.
-- If you see "Physical RMB DOWN" but no "ClickLock armed" — your hold was shorter than the threshold. Lower the hold-to-lock value.
-- If "Move-cancel" fires constantly — your mouse has high jitter; raise the threshold to 10–15 px.
+- Press and hold RMB. If you see "ClickLock armed" but no "LOCKED", the cursor moved past the threshold during release. Either steady your hand or raise the move threshold.
+- If you see "Physical RMB DOWN" but no "ClickLock armed", your hold was shorter than the threshold. Lower the hold-to-lock value.
+- If "Move-cancel" fires constantly, your mouse has high jitter; raise the threshold to 10-15 px.
 
 ## Troubleshooting
 
 ### The lock doesn't engage at all
 
 - **Is "Enabled" checked?** Tray menu and settings both show this.
-- **Are the hooks installed?** Open the debug window — there should be a "Mouse hook installed." line at the top.
+- **Are the hooks installed?** Open the debug window; there should be a "Mouse hook installed." line at the top.
 - **Is the tray icon red after release?** If yes, the lock engaged but the focused application doesn't see it. See next.
 
 ### A specific game doesn't respond to the lock
@@ -163,10 +163,10 @@ Some games use Raw Input with `RIDEV_NOLEGACY`, opting out of standard window mo
 
 ### RMB feels stuck after a crash
 
-This should be rare — the app installs five emergency-release paths. If it does happen:
+This should be rare. The app installs five emergency-release paths. If it does happen:
 
 - **Click the right mouse button once.** A real physical click clears the OS's belief that RMB is held.
-- The next time you launch the app, it will not be in a stuck state — held state is not persisted.
+- The next time you launch the app, it will not be in a stuck state; held state is not persisted.
 
 ### The app launches and immediately disappears
 
@@ -178,7 +178,7 @@ Open settings → uncheck **Start with Windows** → Save. The registry entry is
 
 ## Uninstall
 
-The app is portable — there is no installer to remove. To clean up:
+The app is portable; there is no installer to remove. To clean up:
 
 1. From the tray menu, choose **Exit**.
 2. Delete the `WindowsMouseMods.exe` (and any DLLs alongside it from a non-published build).

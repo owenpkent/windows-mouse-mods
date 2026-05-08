@@ -167,10 +167,10 @@ internal sealed class MainForm : Form
 
     private void OnFormClosing(object? sender, FormClosingEventArgs e)
     {
-        // Programmatic close from inside the TaskDialog handler — let it through.
+        // Programmatic close from inside the TaskDialog handler; let it through.
         if (_closeResolved) return;
 
-        // Windows is shutting down — let it through too.
+        // Windows is shutting down; let it through too.
         if (e.CloseReason != CloseReason.UserClosing) return;
 
         var choice = AskMinimizeOrExit();

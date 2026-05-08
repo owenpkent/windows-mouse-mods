@@ -28,7 +28,7 @@ internal static class TrayIcons
         var bodyRect = new RectangleF(7f, 3.5f, 18f, 25.5f);
         using var body = RoundedRect(bodyRect, 8f);
 
-        // 1. Body fill — subtle vertical gradient.
+        // 1. Body fill: subtle vertical gradient.
         using (var bodyBrush = new LinearGradientBrush(
                    bodyRect,
                    Color.FromArgb(245, 245, 250),
@@ -38,7 +38,7 @@ internal static class TrayIcons
             g.FillPath(bodyBrush, body);
         }
 
-        // 2. Right button tint — drawn clipped to the body so it conforms to the silhouette.
+        // 2. Right button tint: drawn clipped to the body so it conforms to the silhouette.
         var saved = g.Save();
         g.SetClip(body);
         var rightHalf = new RectangleF(16f, 3.5f, 9f, 11.5f);
@@ -48,14 +48,14 @@ internal static class TrayIcons
         }
         g.Restore(saved);
 
-        // 3. Button seams — horizontal across body, vertical above the seam.
+        // 3. Button seams: horizontal across body, vertical above the seam.
         using (var seam = new Pen(Color.FromArgb(140, 145, 155), 1f))
         {
             g.DrawLine(seam, 8f, 14.5f, 24f, 14.5f);
             g.DrawLine(seam, 16f, 4f, 16f, 14.5f);
         }
 
-        // 4. Scroll wheel — a small dark pill at the top center.
+        // 4. Scroll wheel: a small dark pill at the top center.
         var wheelRect = new RectangleF(14.75f, 7f, 2.5f, 5.5f);
         using (var wheelPath = RoundedRect(wheelRect, 1f))
         {
@@ -65,7 +65,7 @@ internal static class TrayIcons
             g.DrawPath(wheelPen, wheelPath);
         }
 
-        // 5. Body outline — drawn last so it sits cleanly on top of all fills.
+        // 5. Body outline: drawn last so it sits cleanly on top of all fills.
         using (var outline = new Pen(Color.FromArgb(75, 75, 90), 1.4f))
         {
             g.DrawPath(outline, body);
