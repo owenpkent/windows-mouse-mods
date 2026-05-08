@@ -20,7 +20,7 @@ public sealed class AppSettings
     /// <summary>Hold duration in milliseconds before ClickLock engages.</summary>
     public int ClickLockHoldMs { get; set; } = 500;
 
-    public bool StartMinimized { get; set; } = true;
+    public bool StartMinimized { get; set; } = false;
     public bool AutoStartWithWindows { get; set; } = false;
 
     private static readonly string SettingsDir = Path.Combine(
