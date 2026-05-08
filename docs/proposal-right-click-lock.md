@@ -1,7 +1,7 @@
 # Right-Click Lock: Proposal for Native Windows Integration
 
 **Version:** 0.1
-**Author:** Owen Kent (redacted@example.invalid)
+**Author:** Owen Kent ([linkedin.com/in/owenpkent](https://www.linkedin.com/in/owenpkent/))
 **Reference implementation:** [github.com/owenpkent/windows-right-click-lock](https://github.com/owenpkent/windows-right-click-lock)
 **Audience:** Windows Input, Devices, Settings, and Accessibility teams at Microsoft
 
@@ -178,7 +178,7 @@ The author is happy to grant Microsoft a perpetual, royalty-free license to use 
 2. If yes: a directed conversation with the Mouse Properties / Settings owners to align on UX surface and the SPI registration.
 3. If no: explicit guidance on whether a third-party Control Panel applet (the planned v1.2 of this project) will be supported by the Mouse Properties / Settings teams, or whether they would prefer the feature stay in user-space tray utilities.
 
-The author can be reached at redacted@example.invalid and is available for a call at Microsoft's convenience.
+The author can be reached via [LinkedIn](https://www.linkedin.com/in/owenpkent/) and is available for a call at Microsoft's convenience.
 
 ---
 
@@ -215,6 +215,6 @@ The implementation is approximately 80 lines of C# in `RightClickLockController.
 ## Appendix C. Contact
 
 - **Author:** Owen Kent
-- **Email:** redacted@example.invalid
+- **LinkedIn:** [linkedin.com/in/owenpkent](https://www.linkedin.com/in/owenpkent/)
 - **GitHub:** [github.com/owenpkent](https://github.com/owenpkent)
 - **Project:** [github.com/owenpkent/windows-right-click-lock](https://github.com/owenpkent/windows-right-click-lock)

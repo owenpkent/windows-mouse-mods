@@ -130,5 +130,5 @@ A user-mode implementation will always carry constraints that a native one does 
 The author offers a perpetual, royalty-free license to use any portion of this repository (source, documentation, mockups) in a native Windows implementation, with or without attribution. A formal `LICENSE` file for non-Microsoft uses is pending; for now, contact the author.
 
 - **Author:** Owen Kent
-- **Email:** redacted@example.invalid
+- **LinkedIn:** [linkedin.com/in/owenpkent](https://www.linkedin.com/in/owenpkent/)
 - **Project:** [github.com/owenpkent/windows-right-click-lock](https://github.com/owenpkent/windows-right-click-lock)
