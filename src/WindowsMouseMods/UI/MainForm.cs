@@ -38,7 +38,9 @@ internal sealed class MainForm : Form
         ShowInTaskbar = true;
         AutoScaleMode = AutoScaleMode.Dpi;
         Padding = new Padding(16);
-        ClientSize = new Size(380, 260);
+        AutoSize = true;
+        AutoSizeMode = AutoSizeMode.GrowAndShrink;
+        MinimumSize = new Size(380, 0);
 
         BuildLayout();
         WireEvents();
@@ -56,38 +58,39 @@ internal sealed class MainForm : Form
 
     private void BuildLayout()
     {
-        var root = new TableLayoutPanel
+        var root = new FlowLayoutPanel
         {
             Dock = DockStyle.Fill,
-            ColumnCount = 1,
+            FlowDirection = FlowDirection.TopDown,
+            WrapContents = false,
             AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
             Padding = new Padding(0),
         };
-        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
 
+        _enabledCheckbox.Margin = new Padding(0, 0, 0, 8);
         root.Controls.Add(_enabledCheckbox);
 
-        var clickGroup = new GroupBox { Text = "ClickLock", AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Dock = DockStyle.Top, Padding = new Padding(8) };
-        var clickRow = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, FlowDirection = FlowDirection.LeftToRight, WrapContents = false };
+        var clickGroup = new GroupBox { Text = "ClickLock", AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new Padding(8), Margin = new Padding(0, 0, 0, 8) };
+        var clickRow = new FlowLayoutPanel { AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, FlowDirection = FlowDirection.LeftToRight, WrapContents = false };
         clickRow.Controls.Add(new Label { Text = "Hold to lock (ms):", AutoSize = true, Margin = new Padding(0, 6, 6, 0) });
         clickRow.Controls.Add(_holdMs);
         clickGroup.Controls.Add(clickRow);
         root.Controls.Add(clickGroup);
 
-        var startupGroup = new GroupBox { Text = "Startup", AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Dock = DockStyle.Top, Padding = new Padding(8) };
-        var startupLayout = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 1 };
+        var startupGroup = new GroupBox { Text = "Startup", AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new Padding(8), Margin = new Padding(0, 0, 0, 8) };
+        var startupLayout = new FlowLayoutPanel { FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink };
         startupLayout.Controls.Add(_autoStartCheckbox);
         startupLayout.Controls.Add(_startMinimizedCheckbox);
         startupGroup.Controls.Add(startupLayout);
         root.Controls.Add(startupGroup);
 
+        _statusLabel.Margin = new Padding(0, 0, 0, 8);
         root.Controls.Add(_statusLabel);
 
-        var buttonRow = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, FlowDirection = FlowDirection.RightToLeft, WrapContents = false };
+        var buttonRow = new FlowLayoutPanel { AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, FlowDirection = FlowDirection.RightToLeft, WrapContents = false, Margin = new Padding(0) };
         buttonRow.Controls.Add(_closeButton);
         buttonRow.Controls.Add(_saveButton);
-        // Push the debug button to the far left of the row.
         _debugButton.Margin = new Padding(0, 3, 24, 3);
         buttonRow.Controls.Add(_debugButton);
         root.Controls.Add(buttonRow);
