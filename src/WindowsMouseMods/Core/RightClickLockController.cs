@@ -5,19 +5,15 @@ using static WindowsMouseMods.Native.NativeMethods;
 namespace WindowsMouseMods.Core;
 
 /// <summary>
-/// Coordinates the mouse and keyboard hooks to implement two RMB-lock modes:
+/// ClickLock for the right mouse button.
 ///
-///   HotkeyToggle: a configured key flips lock state on/off. Synthetic RMB DOWN/UP is injected.
-///   ClickLock:    if the user holds RMB longer than the threshold and releases, the UP is
-///                 suppressed and the system continues to see RMB held. The next physical
-///                 RMB tap releases the lock (and is itself swallowed).
-///
-/// In both modes, while locked, a fresh physical RMB DOWN-UP releases the lock.
+/// Hold RMB longer than the threshold and release: the up event is suppressed and the system
+/// keeps thinking RMB is held. The next physical RMB tap releases the lock (and is itself
+/// swallowed cleanly so the OS only sees the synthetic up).
 /// </summary>
 internal sealed class RightClickLockController : IDisposable
 {
     private readonly LowLevelMouseHook _mouseHook = new();
-    private readonly LowLevelKeyboardHook _keyboardHook = new();
     private readonly System.Windows.Forms.Timer _clickLockTimer;
 
     private AppSettings _settings;
@@ -25,12 +21,12 @@ internal sealed class RightClickLockController : IDisposable
     private bool _physicalRmbDown;
     private bool _clickLockArmed;
     private bool _swallowNextRealRmbUp;
-    private int _hotkeyDownVk;
 
     public bool Locked => _locked;
     public AppSettings Settings => _settings;
 
     public event EventHandler? LockStateChanged;
+    public event EventHandler<string>? DebugMessage;
 
     public RightClickLockController(AppSettings settings)
     {
@@ -39,35 +35,38 @@ internal sealed class RightClickLockController : IDisposable
         _clickLockTimer.Tick += OnClickLockTimerTick;
 
         _mouseHook.MouseEvent += OnMouseEvent;
-        _keyboardHook.KeyEvent += OnKeyEvent;
     }
 
     public void Start()
     {
         _mouseHook.Install();
-        _keyboardHook.Install();
+        Log("Mouse hook installed.");
     }
 
     public void Stop()
     {
-        ReleaseLockIfHeld();
+        ReleaseLockIfHeld("controller stopping");
         _mouseHook.Uninstall();
-        _keyboardHook.Uninstall();
+        Log("Mouse hook uninstalled.");
     }
 
     public void ApplySettings(AppSettings settings)
     {
         _settings = settings;
         _clickLockTimer.Interval = Math.Max(50, settings.ClickLockHoldMs);
+        Log($"Settings applied: enabled={settings.Enabled}, holdMs={settings.ClickLockHoldMs}.");
         if (!settings.Enabled)
-            ReleaseLockIfHeld();
+            ReleaseLockIfHeld("disabled in settings");
     }
 
     private void OnClickLockTimerTick(object? sender, EventArgs e)
     {
         _clickLockTimer.Stop();
-        if (_physicalRmbDown && _settings.Enabled && _settings.Mode == LockMode.ClickLock)
+        if (_physicalRmbDown && _settings.Enabled)
+        {
             _clickLockArmed = true;
+            Log($"ClickLock armed after {_settings.ClickLockHoldMs} ms hold.");
+        }
     }
 
     private void OnMouseEvent(object? sender, MouseHookEventArgs e)
@@ -94,18 +93,17 @@ internal sealed class RightClickLockController : IDisposable
             // to free the synthetic-held button.
             e.Suppress = true;
             _swallowNextRealRmbUp = true;
-            ReleaseLockIfHeld();
+            Log("Physical RMB DOWN while locked -> releasing (suppress DOWN, swallow next UP).");
+            ReleaseLockIfHeld("tap-to-release");
             return;
         }
 
         _physicalRmbDown = true;
         _clickLockArmed = false;
-        if (_settings.Mode == LockMode.ClickLock)
-        {
-            _clickLockTimer.Stop();
-            _clickLockTimer.Interval = Math.Max(50, _settings.ClickLockHoldMs);
-            _clickLockTimer.Start();
-        }
+        _clickLockTimer.Stop();
+        _clickLockTimer.Interval = Math.Max(50, _settings.ClickLockHoldMs);
+        _clickLockTimer.Start();
+        Log("Physical RMB DOWN -> hold timer started.");
     }
 
     private void HandlePhysicalRmbUp(MouseHookEventArgs e)
@@ -114,70 +112,42 @@ internal sealed class RightClickLockController : IDisposable
         {
             _swallowNextRealRmbUp = false;
             e.Suppress = true;
+            Log("Physical RMB UP swallowed (paired with release tap).");
             return;
         }
 
         _physicalRmbDown = false;
         _clickLockTimer.Stop();
 
-        if (_settings.Mode == LockMode.ClickLock && _clickLockArmed)
+        if (_clickLockArmed)
         {
-            // Suppress the UP — system now believes the button is still held.
             _clickLockArmed = false;
             e.Suppress = true;
             _locked = true;
+            Log("Physical RMB UP after threshold -> LOCKED (UP suppressed).");
             LockStateChanged?.Invoke(this, EventArgs.Empty);
         }
-    }
-
-    private void OnKeyEvent(object? sender, KeyboardHookEventArgs e)
-    {
-        if (e.Injected) return;
-        if (!_settings.Enabled) return;
-        if (_settings.Mode != LockMode.HotkeyToggle) return;
-        if (e.VirtualKey != _settings.HotkeyVirtualKey) return;
-
-        if (e.IsKeyDown)
-        {
-            // Suppress the hotkey at the system level so it doesn't bleed into the focused app.
-            e.Suppress = true;
-            if (_hotkeyDownVk == e.VirtualKey) return; // ignore autorepeat
-            _hotkeyDownVk = e.VirtualKey;
-            ToggleLock();
-        }
-        else if (e.IsKeyUp)
-        {
-            e.Suppress = true;
-            if (_hotkeyDownVk == e.VirtualKey)
-                _hotkeyDownVk = 0;
-        }
-    }
-
-    private void ToggleLock()
-    {
-        if (_locked)
-            ReleaseLockIfHeld();
         else
         {
-            InputInjector.RightDown();
-            _locked = true;
-            LockStateChanged?.Invoke(this, EventArgs.Empty);
+            Log("Physical RMB UP before threshold -> regular click.");
         }
     }
 
-    private void ReleaseLockIfHeld()
+    private void ReleaseLockIfHeld(string reason)
     {
         if (!_locked) return;
         InputInjector.RightUp();
         _locked = false;
+        Log($"Lock released ({reason}).");
         LockStateChanged?.Invoke(this, EventArgs.Empty);
     }
+
+    private void Log(string message) => DebugMessage?.Invoke(this, message);
 
     public void Dispose()
     {
         Stop();
         _clickLockTimer.Dispose();
         _mouseHook.Dispose();
-        _keyboardHook.Dispose();
     }
 }

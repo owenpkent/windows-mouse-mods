@@ -2,15 +2,14 @@
 
 A small Windows tray utility that lets you "lock" the right mouse button down — like Windows ClickLock, but for RMB.
 
-Originally built to make camera control comfortable in games where you have to keep right-click held the entire time you're moving the camera (MMOs, ARPGs, RTS, sandbox builders). Tap a key, the right button stays held, your hand stays relaxed.
+Built to make camera control comfortable in games where you have to keep right-click held the entire time you're moving the camera (MMOs, ARPGs, RTS, sandbox builders). Press and briefly hold RMB; let go; the right button stays held until you tap it again.
 
 ## Features
 
-- Two activation modes, switchable in the GUI:
-  - **Hotkey toggle** — a configured key (default `F8`) flips RMB held / released.
-  - **ClickLock** — press and briefly hold RMB; after the configured delay it stays locked when you release.
-- Either way, a normal physical RMB click while locked **releases** the lock, so you never get stuck with the button down.
-- System-tray icon with quick-access menu (Enable / Disable, Mode, Settings, Exit).
+- **ClickLock for RMB** — press and briefly hold RMB; once you cross the configured threshold (default 500 ms), the button stays locked when you release. The next physical RMB tap releases the lock (and is itself swallowed cleanly).
+- **Tray-resident** with a quick-access menu (Enable / Disable, Settings, Show debug window, Exit).
+- **Live debug window** showing the mouse-event stream, lock state, and timing — useful for tuning the hold threshold or diagnosing why a game isn't seeing the held button.
+- **Close-confirmation dialog** lets you choose between "Minimize to Tray" and "Exit" each time you close the settings window.
 - Settings persisted to `%APPDATA%\WindowsMouseMods\settings.json`.
 - Optional "Start with Windows" via the user `Run` registry key (no admin needed).
 - Single-instance enforced via a named mutex.
@@ -45,38 +44,35 @@ The published `.exe` lands in `src/WindowsMouseMods/bin/Release/net9.0-windows/w
 
 ## Run
 
-Launch `WindowsMouseMods.exe`. A tray icon appears.
+Launch `WindowsMouseMods.exe`. The settings window opens (unless you've opted into "Start minimized").
 
-- **Double-click** the tray icon to open the settings window.
-- **Right-click** the tray icon for quick toggles (enable/disable, mode, exit).
-- The settings window's close button hides to tray; use **Exit** from the tray menu to actually quit.
+- **Right-click** the tray icon for quick toggles (enable/disable, settings, debug window, exit).
+- **Double-click** the tray icon to re-open settings.
+- The settings window's close button asks **Minimize to Tray** vs **Exit** each time. Use **Exit** in the tray menu to quit without the prompt.
 
-## How the modes work
-
-### Hotkey toggle
-
-1. Press the configured hotkey → the app injects a synthetic RMB **down**. The OS (and any focused game) sees the right button as held.
-2. Press it again, **or** physically click RMB, → the app injects a synthetic RMB **up** and you're back to normal.
-
-The hotkey itself is suppressed at the OS level, so it doesn't bleed through to the focused application as a stray keypress.
-
-### ClickLock
+## How ClickLock works
 
 1. Press and hold RMB. While you're holding, a timer runs (`Hold to lock` ms — default 500).
 2. If you release **after** the threshold, the natural RMB **up** is suppressed — the OS still thinks the button is held.
-3. The next physical RMB click releases the lock (the click itself is swallowed so the OS only sees the synthetic up).
+3. The next physical RMB click releases the lock (the click is swallowed so the OS only sees the synthetic up).
 
 If you let go **before** the threshold, the click passes through normally — it's just a regular right-click.
 
-## Configuration
+## Debug window
 
-The settings window covers everything:
+Open from the tray menu (**Show debug window**). It shows:
+
+- Live event stream with timestamps: physical RMB down/up, timer arming, lock engage/release, settings reapplied.
+- Current state line at the top: enabled/disabled, ready/locked, current hold threshold.
+- **Pause** to freeze the stream while you read; **Clear** to wipe; **Auto-scroll** to follow the latest event.
+
+The window remembers itself across launches — if it was open when you exit, it re-opens on the next launch.
+
+## Configuration
 
 | Setting | What it does |
 | --- | --- |
 | Enabled | Master on/off without quitting the app |
-| Mode | Hotkey toggle vs ClickLock |
-| Hotkey | Capture any key (Esc cancels). Default `F8` |
 | Hold to lock (ms) | ClickLock threshold. Default 500, range 100–3000 |
 | Start with Windows | Adds/removes a `HKCU\...\Run` entry |
 | Start minimized to tray | If unchecked, settings window opens on launch |
@@ -88,42 +84,43 @@ The JSON file at `%APPDATA%\WindowsMouseMods\settings.json` is human-editable if
 ```
 windows-mouse-mods/
 ├── WindowsMouseMods.sln
+├── CLAUDE.md                    # notes for future Claude Code sessions
+├── scripts/create-shortcut.ps1  # generates a root-level .lnk launcher
 └── src/WindowsMouseMods/
     ├── WindowsMouseMods.csproj
-    ├── app.manifest               # asInvoker, Win10/11 supportedOS
-    ├── Program.cs                 # entry point, single-instance, runs the tray context
+    ├── app.manifest             # asInvoker, Win10/11 supportedOS
+    ├── Program.cs               # entry point, single-instance, runs the tray context
     ├── Native/
-    │   ├── NativeMethods.cs       # all P/Invoke (SetWindowsHookEx, SendInput, ...)
-    │   └── InputInjector.cs       # SendInput wrapper for synthetic RMB down/up
+    │   ├── NativeMethods.cs     # all P/Invoke (SetWindowsHookEx, SendInput, ...)
+    │   └── InputInjector.cs     # SendInput wrapper for synthetic RMB down/up
     ├── Hooks/
-    │   ├── LowLevelMouseHook.cs   # WH_MOUSE_LL wrapper, raises events with Suppress flag
-    │   └── LowLevelKeyboardHook.cs # WH_KEYBOARD_LL wrapper
+    │   └── LowLevelMouseHook.cs # WH_MOUSE_LL wrapper, raises events with Suppress flag
     ├── Core/
-    │   ├── AppSettings.cs         # JSON-backed settings in %APPDATA%
-    │   ├── AutoStart.cs           # HKCU Run-key toggle
-    │   └── RightClickLockController.cs  # the state machine for both modes
+    │   ├── AppSettings.cs       # JSON-backed settings in %APPDATA%
+    │   ├── AutoStart.cs         # HKCU Run-key toggle
+    │   └── RightClickLockController.cs  # ClickLock state machine
     └── UI/
         ├── TrayApplicationContext.cs  # NotifyIcon + context menu
-        └── MainForm.cs                # settings window
+        ├── MainForm.cs                # settings window
+        └── DebugForm.cs               # live debug window
 ```
 
 ## Implementation notes
 
-- Uses `SetWindowsHookEx(WH_MOUSE_LL)` and `SetWindowsHookEx(WH_KEYBOARD_LL)` for global, low-level input observation. Returning a non-zero value from the hook procedure drops the message before it reaches the rest of the system, which is how we suppress the natural RMB **up** in ClickLock mode and how we keep the hotkey from leaking to the focused app.
-- Synthetic events are emitted via `SendInput` with `dwExtraInfo = 'WINM'` (`0x57494E4D`). The hook checks that tag and ignores anything we injected, so we don't recurse on our own events.
-- The hook callback delegate is held in an instance field so the GC doesn't collect it while a hook is installed.
-- The settings window uses `KeyPreview = true` and `e.SuppressKeyPress` to capture a hotkey without echoing it into the focused control.
+- `SetWindowsHookEx(WH_MOUSE_LL)` for global, low-level mouse observation. Returning a non-zero value from the hook procedure drops the message before it reaches the rest of the system — that's how we suppress the natural RMB **up** when the lock engages, and how we swallow the release tap.
+- Synthetic events go out via `SendInput` with `dwExtraInfo = 'WINM'` (`0x57494E4D`). The hook checks that tag and ignores anything we injected, so we don't recurse on our own events.
+- The hook callback delegate is held in an instance field so the GC doesn't collect it while the hook is installed.
+- Close confirmation uses `TaskDialog` (System.Windows.Forms) for a native-looking three-button choice.
 
 ## Caveats
 
 - Some games and anti-cheat systems flag synthesized input. This tool is intended for single-player and cooperative games. Don't use it where it might violate a game's terms of service.
-- Hooks run on the application's UI thread message loop. If the process hangs, the hook is unresponsive and Windows will eventually time it out and unhook it. Keep the controller logic fast (it is — no I/O, no blocking).
+- Hooks run on the application's UI message loop. Keep the controller logic fast (it is — no I/O, no allocations on the hot path).
 - Currently x64 only. Build for `win-x86` if you need 32-bit.
 
 ## Roadmap
 
 - Custom tray icon (SVG → ICO) with a visible "locked" state
-- Modifier-key combos for the hotkey (e.g. `Ctrl+F8`)
 - Per-process enable/disable rules (only auto-engage in specific games)
 - Optional "release lock on mouse move > N px" for ClickLock parity with the Windows behavior
 - Installer (MSI or `winget` package)

@@ -3,25 +3,18 @@ using System.Text.Json.Serialization;
 
 namespace WindowsMouseMods.Core;
 
-public enum LockMode
-{
-    HotkeyToggle,
-    ClickLock,
-}
-
 public sealed class AppSettings
 {
     public bool Enabled { get; set; } = true;
-    public LockMode Mode { get; set; } = LockMode.HotkeyToggle;
-
-    /// <summary>Virtual-key code for the hotkey toggle. Default F8 (0x77).</summary>
-    public int HotkeyVirtualKey { get; set; } = 0x77;
 
     /// <summary>Hold duration in milliseconds before ClickLock engages.</summary>
     public int ClickLockHoldMs { get; set; } = 500;
 
     public bool StartMinimized { get; set; } = false;
     public bool AutoStartWithWindows { get; set; } = false;
+
+    /// <summary>Re-open the debug window automatically on launch if it was open last time.</summary>
+    public bool ShowDebugOnStartup { get; set; } = false;
 
     private static readonly string SettingsDir = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),

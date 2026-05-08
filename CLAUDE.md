@@ -17,12 +17,15 @@ Windows tray utility (.NET 9 WinForms) that "locks" the right mouse button held 
 - **`src/WindowsMouseMods/Native/`** — P/Invoke surface.
   - `NativeMethods.cs` declares everything (SetWindowsHookEx, SendInput, structs, constants).
   - `InputInjector.cs` wraps `SendInput` for synthetic RMB down/up.
-- **`src/WindowsMouseMods/Hooks/`** — wrappers for `WH_MOUSE_LL` and `WH_KEYBOARD_LL`. They raise events with a mutable `Suppress` flag — handlers set it to `true` to drop the message before downstream apps see it.
+- **`src/WindowsMouseMods/Hooks/`** — `LowLevelMouseHook` wraps `WH_MOUSE_LL`. Events expose a mutable `Suppress` flag — handlers set it to `true` to drop the message before downstream apps see it.
 - **`src/WindowsMouseMods/Core/`** — pure logic.
-  - `RightClickLockController` is the state machine for both modes (HotkeyToggle, ClickLock).
+  - `RightClickLockController` is the ClickLock state machine. Also exposes `DebugMessage` events so the debug window can render a live stream.
   - `AppSettings` is JSON at `%APPDATA%\WindowsMouseMods\settings.json`.
   - `AutoStart` toggles the `HKCU\...\Run` key.
-- **`src/WindowsMouseMods/UI/`** — `TrayApplicationContext` (NotifyIcon + context menu, runs as the `ApplicationContext`) and `MainForm` (settings window).
+- **`src/WindowsMouseMods/UI/`**
+  - `TrayApplicationContext` — runs as the `ApplicationContext`; owns the `NotifyIcon`, the controller, the settings form, and the debug form.
+  - `MainForm` — settings window. Title-bar close raises a `TaskDialog` asking Minimize / Exit / Cancel.
+  - `DebugForm` — live event stream wired to `controller.DebugMessage`. Bounded at 1000 lines, with Pause / Clear / Auto-scroll.
 
 ## Important invariants
 
@@ -30,7 +33,9 @@ Windows tray utility (.NET 9 WinForms) that "locks" the right mouse button held 
 - **Hook callback lifetime**: each hook wrapper stores the `HookProc` delegate in an instance field. Don't inline it as a lambda passed directly to `SetWindowsHookEx` — the GC will collect it and the hook will crash.
 - **Single instance**: enforced via a named mutex in `Program.cs`. Second launches exit silently. (TODO: signal the running instance to show its window.)
 - **DPI**: PerMonitorV2, set via `<ApplicationHighDpiMode>` in the csproj. Don't put DPI settings in `app.manifest` — modern WinForms warns about that.
-- **Window-close behavior**: `MainForm`'s title-bar close hides to tray. Only "Exit" in the tray menu actually quits.
+- **Window-close behavior**: `MainForm.OnFormClosing` runs a `TaskDialog` (Minimize / Exit / Cancel) for `CloseReason.UserClosing`. The `_closeResolved` flag short-circuits re-entry when the dialog programmatically closes the form. Other close reasons (system shutdown, etc.) pass through untouched.
+- **Debug window persistence**: `AppSettings.ShowDebugOnStartup` is set when the user opens the debug window and cleared when they close it. On launch, if the flag is on, the window auto-reopens.
+- **Hot path discipline**: the hook callback should not allocate or block. `RightClickLockController.Log()` only fires an event handler — strings are formatted via interpolation, but stay short. The debug form does its own marshaling via `BeginInvoke`.
 
 ## Build / run
 

@@ -8,9 +8,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly RightClickLockController _controller;
     private readonly AppSettings _settings;
     private MainForm? _mainForm;
+    private DebugForm? _debugForm;
     private readonly ToolStripMenuItem _enabledItem;
-    private readonly ToolStripMenuItem _modeHotkeyItem;
-    private readonly ToolStripMenuItem _modeClickLockItem;
+    private readonly ToolStripMenuItem _debugItem;
 
     public TrayApplicationContext()
     {
@@ -19,18 +19,13 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _controller.LockStateChanged += (_, _) => UpdateTrayIcon();
 
         _enabledItem = new ToolStripMenuItem("Enabled", null, OnToggleEnabled) { Checked = _settings.Enabled, CheckOnClick = true };
-        _modeHotkeyItem = new ToolStripMenuItem("Hotkey toggle", null, (_, _) => SetMode(LockMode.HotkeyToggle));
-        _modeClickLockItem = new ToolStripMenuItem("ClickLock", null, (_, _) => SetMode(LockMode.ClickLock));
-        UpdateModeChecks();
-
-        var modeMenu = new ToolStripMenuItem("Mode");
-        modeMenu.DropDownItems.AddRange(new ToolStripItem[] { _modeHotkeyItem, _modeClickLockItem });
+        _debugItem = new ToolStripMenuItem("Show debug window", null, (_, _) => ToggleDebugWindow()) { CheckOnClick = false };
 
         var menu = new ContextMenuStrip();
         menu.Items.Add(_enabledItem);
-        menu.Items.Add(modeMenu);
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("Settings...", null, (_, _) => ShowMainForm());
+        menu.Items.Add(_debugItem);
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("Exit", null, (_, _) => ExitApplication());
 
@@ -55,6 +50,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
         UpdateTrayIcon();
 
+        if (_settings.ShowDebugOnStartup)
+            ShowDebugWindow();
+
         if (!_settings.StartMinimized)
             ShowMainForm();
     }
@@ -67,20 +65,6 @@ internal sealed class TrayApplicationContext : ApplicationContext
         UpdateTrayIcon();
     }
 
-    private void SetMode(LockMode mode)
-    {
-        _settings.Mode = mode;
-        UpdateModeChecks();
-        _controller.ApplySettings(_settings);
-        _settings.Save();
-    }
-
-    private void UpdateModeChecks()
-    {
-        _modeHotkeyItem.Checked = _settings.Mode == LockMode.HotkeyToggle;
-        _modeClickLockItem.Checked = _settings.Mode == LockMode.ClickLock;
-    }
-
     private void UpdateTrayIcon()
     {
         var status = !_settings.Enabled ? "disabled"
@@ -89,11 +73,11 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _trayIcon.Text = $"Windows Mouse Mods — {status}";
     }
 
-    private void ShowMainForm()
+    public void ShowMainForm()
     {
         if (_mainForm == null || _mainForm.IsDisposed)
         {
-            _mainForm = new MainForm(_settings, _controller, OnSettingsSaved);
+            _mainForm = new MainForm(_settings, _controller, OnSettingsSaved, ExitApplication);
             _mainForm.FormClosed += (_, _) => _mainForm = null;
         }
         _mainForm.Show();
@@ -102,15 +86,55 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _mainForm.Activate();
     }
 
+    public void ShowDebugWindow()
+    {
+        if (_debugForm == null || _debugForm.IsDisposed)
+        {
+            _debugForm = new DebugForm(_controller);
+            _debugForm.FormClosed += (_, _) =>
+            {
+                _debugForm = null;
+                _debugItem.Checked = false;
+                if (_settings.ShowDebugOnStartup)
+                {
+                    _settings.ShowDebugOnStartup = false;
+                    _settings.Save();
+                }
+            };
+        }
+        _debugForm.Show();
+        _debugForm.WindowState = FormWindowState.Normal;
+        _debugForm.BringToFront();
+        _debugForm.Activate();
+        _debugItem.Checked = true;
+
+        if (!_settings.ShowDebugOnStartup)
+        {
+            _settings.ShowDebugOnStartup = true;
+            _settings.Save();
+        }
+    }
+
+    private void ToggleDebugWindow()
+    {
+        if (_debugForm != null && !_debugForm.IsDisposed)
+        {
+            _debugForm.Close();
+        }
+        else
+        {
+            ShowDebugWindow();
+        }
+    }
+
     private void OnSettingsSaved()
     {
         _enabledItem.Checked = _settings.Enabled;
-        UpdateModeChecks();
         _controller.ApplySettings(_settings);
         UpdateTrayIcon();
     }
 
-    private void ExitApplication()
+    public void ExitApplication()
     {
         _controller.Dispose();
         _trayIcon.Visible = false;
