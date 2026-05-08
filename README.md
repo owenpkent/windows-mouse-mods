@@ -1,32 +1,51 @@
-# windows-mouse-mods
+# Right-Click Lock for Windows
 
-A small Windows tray utility that lets you "lock" the right mouse button down, like Windows ClickLock, but for RMB.
+Reference implementation of a proposed native Windows feature. Extends Windows ClickLock to the right mouse button, addressing a longstanding asymmetry in the Mouse Properties Buttons tab.
 
-Built to make camera control comfortable in games where you have to keep right-click held the entire time you're moving the camera (MMOs, ARPGs, RTS, sandbox builders). Press and briefly hold RMB; let go; the right button stays held until you tap it again.
+**Quick links:** [Proposal for Microsoft](docs/proposal-right-click-lock.md) | [Technical white paper](docs/whitepaper.md) | [Security review](docs/security-review.md) | [Usage guide](docs/usage.md)
 
-## Features
+---
 
-- **ClickLock for RMB.** Press and briefly hold RMB; once you cross the configured threshold (default 500 ms), the button stays locked when you release. The next physical RMB tap releases the lock (and is itself swallowed cleanly).
-- **Tray-resident** with a quick-access menu (Enable / Disable, Settings, Show debug window, Exit).
-- **Live debug window** showing the mouse-event stream, lock state, and timing, useful for tuning the hold threshold or diagnosing why a game isn't seeing the held button.
-- **Close-confirmation dialog** lets you choose between "Minimize to Tray" and "Exit" each time you close the settings window.
-- Settings persisted to `%APPDATA%\WindowsMouseMods\settings.json`.
-- Optional "Start with Windows" via the user `Run` registry key (no admin needed).
-- Single-instance enforced via a named mutex.
-- Per-monitor V2 DPI aware.
+## Why this exists
 
-## Documentation
+Windows has shipped **ClickLock** since Windows 2000: tap and briefly hold the primary mouse button, release, and the OS continues to perceive the button as held until the next tap. There is no equivalent for the secondary (right) button. The asymmetry has a real user cost across three populations:
 
-- **[Usage guide](docs/usage.md)**: installation, daily use, settings reference, debug window, troubleshooting.
-- **[Technical white paper](docs/whitepaper.md)**: design rationale, state machine, crash-safety model, performance, compatibility.
+- **PC gamers.** Sustained right-click is the camera gesture across MMOs, ARPGs, RTS, city builders, sandbox titles, and flight sims. Hours of held RMB cause real discomfort.
+- **Accessibility users.** ClickLock exists because button-locking helps users with limited grip strength. The same argument applies symmetrically to the right button.
+- **Productivity users.** Right-button drag and prolonged context-menu interactions benefit from the same affordance.
 
-## Install
+This repository contains a working reference implementation of Right-Click Lock plus a formal proposal for Microsoft to absorb the feature into Mouse Properties and the modern Settings app.
 
-Grab the latest [release](../../releases) or build from source.
+## For Microsoft reviewers
 
-## Build from source
+If you are evaluating whether this should ship in Windows, start here:
 
-Requires the .NET 9 SDK (Windows). Install via winget:
+1. **[docs/proposal-right-click-lock.md](docs/proposal-right-click-lock.md)** is the formal proposal: problem statement, UX mockup, implementation paths inside the OS input stack, risk analysis, success metrics, and license offer.
+2. **[docs/whitepaper.md](docs/whitepaper.md)** documents the design rationale, the state machine, the crash-safety model, performance characteristics, and compatibility constraints. Useful as a test corpus for validating a native implementation.
+3. **[docs/security-review.md](docs/security-review.md)** is an adversarial security audit with applied fixes. The reference implementation is held to a bar consistent with code that could ship in Windows.
+4. **Build and run the reference implementation** (instructions below) to validate the UX and the move-cancel safety overlay against your own gesture set.
+
+The author offers a perpetual, royalty-free license to the reference implementation, whitepaper, and UX mockups for any native Windows implementation, with or without attribution. Contact details are at the end of the proposal document.
+
+## What it does
+
+Press and briefly hold the right mouse button. After a configurable threshold (default 500 ms), release. The right button stays "held" until you tap it again. Move-cancel mirrors Windows ClickLock semantics: cursor motion past a small dead-zone during the hold cancels the lock, so a press-and-drag remains a press-and-drag. Crash, session lock, and process exit all release the synthetic state via redundant defensive paths.
+
+The full end-user walkthrough is in [docs/usage.md](docs/usage.md).
+
+## Reference implementation
+
+### Stack
+
+- .NET 9 (`net9.0-windows`), WinForms.
+- BCL only. No NuGet dependencies.
+- Small layered codebase across Native, Hooks, Core, UI.
+- Single-instance enforced via per-session named mutex with an explicit DACL scoped to the current user SID.
+- System tray resident with idle and locked-state icons rendered at runtime.
+
+### Build
+
+Requires the .NET 9 SDK on Windows 10 or 11. Install via winget:
 
 ```powershell
 winget install Microsoft.DotNet.SDK.9
@@ -47,95 +66,69 @@ dotnet publish src/WindowsMouseMods/WindowsMouseMods.csproj `
 
 The published `.exe` lands in `src/WindowsMouseMods/bin/Release/net9.0-windows/win-x64/publish/`.
 
-## Run
+### Run
 
-Launch `WindowsMouseMods.exe`. The settings window opens (unless you've opted into "Start minimized").
+Launch `WindowsMouseMods.exe`. The settings window opens with sensible defaults. The tray icon turns red when the lock engages. Right-click the tray for the full menu. The full walkthrough is in [docs/usage.md](docs/usage.md).
 
-- **Right-click** the tray icon for quick toggles (enable/disable, settings, debug window, exit).
-- **Double-click** the tray icon to re-open settings.
-- The settings window's close button asks **Minimize to Tray** vs **Exit** each time. Use **Exit** in the tray menu to quit without the prompt.
-
-## How ClickLock works
-
-1. Press and hold RMB. While you're holding, a timer runs (`Hold to lock` ms, default 500).
-2. If you release **after** the threshold, the natural RMB **up** is suppressed, so the OS still thinks the button is held.
-3. The next physical RMB click releases the lock (the click is swallowed so the OS only sees the synthetic up).
-
-If you let go **before** the threshold, the click passes through normally. It's just a regular right-click.
-
-**Move-cancel:** if the cursor moves more than the configured threshold (default 5 px) during the hold, arming is cancelled, so a press-and-drag turns into a normal drag instead of a sticky lock. Toggle off in settings to disable.
-
-## Debug window
-
-Open from the tray menu (**Show debug window**). It shows:
-
-- Live event stream with timestamps: physical RMB down/up, timer arming, lock engage/release, settings reapplied.
-- Current state line at the top: enabled/disabled, ready/locked, current hold threshold.
-- **Pause** to freeze the stream while you read; **Clear** to wipe; **Auto-scroll** to follow the latest event.
-
-The window remembers itself across launches: if it was open when you exit, it re-opens on the next launch.
-
-## Configuration
-
-| Setting | What it does |
-| --- | --- |
-| Enabled | Master on/off without quitting the app |
-| Hold to lock (ms) | ClickLock threshold. Default 500, range 100–3000 |
-| Cancel arming if mouse moves during hold | Mirrors Windows ClickLock: moving the cursor past the threshold during the hold cancels arming. Default on |
-| Movement threshold (px) | Pixel distance before move-cancel triggers. Default 5, range 1–50 |
-| Start with Windows | Adds/removes a `HKCU\...\Run` entry |
-| Start minimized to tray | If unchecked, settings window opens on launch |
-
-The JSON file at `%APPDATA%\WindowsMouseMods\settings.json` is human-editable if you want to script it.
-
-## Project structure
+## Architecture
 
 ```
 windows-mouse-mods/
-├── WindowsMouseMods.sln
-├── CLAUDE.md                    # notes for future Claude Code sessions
-├── scripts/create-shortcut.ps1  # generates a root-level .lnk launcher
-└── src/WindowsMouseMods/
-    ├── WindowsMouseMods.csproj
-    ├── app.manifest             # asInvoker, Win10/11 supportedOS
-    ├── Program.cs               # entry point, single-instance, runs the tray context
-    ├── Native/
-    │   ├── NativeMethods.cs     # all P/Invoke (SetWindowsHookEx, SendInput, ...)
-    │   └── InputInjector.cs     # SendInput wrapper for synthetic RMB down/up
-    ├── Hooks/
-    │   └── LowLevelMouseHook.cs # WH_MOUSE_LL wrapper, raises events with Suppress flag
-    ├── Core/
-    │   ├── AppSettings.cs       # JSON-backed settings in %APPDATA%
-    │   ├── AutoStart.cs         # HKCU Run-key toggle
-    │   └── RightClickLockController.cs  # ClickLock state machine
-    └── UI/
-        ├── TrayApplicationContext.cs  # NotifyIcon + context menu
-        ├── MainForm.cs                # settings window
-        ├── DebugForm.cs               # live debug window
-        ├── TrayIcons.cs               # GDI-rendered idle/locked tray icons
-        └── PreviewIcons.cs            # dev-only: dump icons to PNG via --preview-icons
+├── docs/
+│   ├── proposal-right-click-lock.md   # Microsoft proposal
+│   ├── whitepaper.md                  # design rationale
+│   ├── usage.md                       # end-user guide
+│   ├── security-review.md             # adversarial audit and fixes
+│   └── mouse-properties-mockup.png    # UX mockup
+├── src/WindowsMouseMods/
+│   ├── Native/        # P/Invoke, SendInput, structs
+│   ├── Hooks/         # WH_MOUSE_LL wrapper with Suppress flag
+│   ├── Core/          # state machine, settings, autostart
+│   └── UI/            # tray context, settings form, live debug stream
+└── scripts/
+    ├── mockup-mouse-properties.ps1    # generator for the proposal mockup
+    └── create-shortcut.ps1            # dev helper
 ```
 
-## Implementation notes
+Each layer depends only on the layers below. The Core layer has no UI dependency, so the state machine could be unit tested against a mock event source.
 
-- `SetWindowsHookEx(WH_MOUSE_LL)` for global, low-level mouse observation. Returning a non-zero value from the hook procedure drops the message before it reaches the rest of the system. That's how we suppress the natural RMB **up** when the lock engages, and how we swallow the release tap.
-- Synthetic events go out via `SendInput` with `dwExtraInfo = 'WINM'` (`0x57494E4D`). The hook checks that tag and ignores anything we injected, so we don't recurse on our own events.
-- The hook callback delegate is held in an instance field so the GC doesn't collect it while the hook is installed.
-- Close confirmation uses `TaskDialog` (System.Windows.Forms) for a native-looking three-button choice.
+The hot path (the hook callback) is tight: no I/O, no blocking, and a single small per-event allocation handled comfortably by Gen-0 GC even at 1000 Hz mouse polling rates. The debug stream marshals to its own UI thread via `BeginInvoke` so observation never affects timing.
 
-## Caveats
+## Security posture
 
-- Some games and anti-cheat systems flag synthesized input. This tool is intended for single-player and cooperative games. Don't use it where it might violate a game's terms of service.
-- Hooks run on the application's UI message loop. Keep the controller logic fast (it is: no I/O, no allocations on the hot path).
-- Currently x64 only. Build for `win-x86` if you need 32-bit.
+The implementation aims to meet a bar consistent with shipping native in Windows:
 
-## Roadmap
+- Per-session named kernel objects (`Local\` namespace) with explicit DACLs scoped to the current user SID. Cross-session squatting and unauthenticated cross-session signaling are not possible.
+- Crash-safe and session-safe synthetic state release via five redundant paths: `UnhandledException`, `ProcessExit`, `ApplicationExit`, `ThreadException`, and `SessionSwitch`.
+- `SendInput` return value is checked. Held-state invariants are maintained even when the OS rejects an injection (e.g. UIPI block).
+- Hook procedure exception isolation with rate-limited diagnostic logging to `%LocalAppData%\WindowsMouseMods\hook-errors.log`.
+- Atomic settings file writes via temp-then-rename.
+- No telemetry. No network. No elevation requested.
 
-- Custom tray icon (SVG → ICO) with a visible "locked" state
-- Per-process enable/disable rules (only auto-engage in specific games)
-- Optional "release lock on mouse move > N px" for ClickLock parity with the Windows behavior
-- Installer (MSI or `winget` package)
+The full adversarial audit, accepted risks, and applied fixes are in [docs/security-review.md](docs/security-review.md).
 
-## Contributing
+## Compatibility
 
-Issues and PRs welcome. Open an issue first if you're planning a non-trivial change so we can sanity-check the approach.
+- Windows 10 and 11, x64.
+- Any game that consumes standard Windows mouse messages. Games that use Raw Input with `RIDEV_NOLEGACY` opt out of the legacy mouse-message path and the tool effectively does nothing for them, with no negative side effects.
+- Synthesized input is detectable by anti-cheat systems. The reference implementation is intended for single-player and cooperative play. A native implementation in the OS input stack would not have this constraint.
+
+## Why native is strictly better than this
+
+A user-mode implementation will always carry constraints that a native one does not. This is the central argument for shipping the feature in Windows rather than leaving it to ISVs:
+
+| Concern | User-mode (this implementation) | Native (proposed) |
+|---|---|---|
+| Anti-cheat compatibility | Routinely false-flagged | Built-in, exempt |
+| Code signing and SmartScreen | Per-vendor cold-start | Trusted by default |
+| Hook ordering disruption | Possible | Implemented at the input source |
+| Per-app exclusion model | Each ISV reinvents | Inherits Focus Assist |
+| Discoverability | Word of mouth | Mouse Properties and Settings |
+
+## License and contact
+
+The author offers a perpetual, royalty-free license to use any portion of this repository (source, documentation, mockups) in a native Windows implementation, with or without attribution. A formal `LICENSE` file for non-Microsoft uses is pending; for now, contact the author.
+
+- **Author:** Owen Kent
+- **Email:** redacted@example.invalid
+- **Project:** [github.com/owenpkent/windows-mouse-mods](https://github.com/owenpkent/windows-mouse-mods)
