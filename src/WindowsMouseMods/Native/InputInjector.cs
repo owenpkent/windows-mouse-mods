@@ -16,28 +16,35 @@ internal static class InputInjector
 
     public static void MarkHeld(bool held) => Volatile.Write(ref _heldFlag, held ? 1 : 0);
 
-    public static void RightDown()
+    /// <returns>true if SendInput accepted the event; false if it failed (e.g. UIPI block).</returns>
+    public static bool RightDown()
     {
-        SendMouseFlag(MOUSEEVENTF_RIGHTDOWN);
+        if (!SendMouseFlag(MOUSEEVENTF_RIGHTDOWN)) return false;
         MarkHeld(true);
+        return true;
     }
 
-    public static void RightUp()
+    /// <returns>true if SendInput accepted the event; false if it failed.</returns>
+    public static bool RightUp()
     {
-        SendMouseFlag(MOUSEEVENTF_RIGHTUP);
+        if (!SendMouseFlag(MOUSEEVENTF_RIGHTUP)) return false;
         MarkHeld(false);
+        return true;
     }
 
     /// <summary>Best-effort release for use from finalizer / unhandled-exception paths.</summary>
     public static void EmergencyRelease()
     {
         if (!IsHeld) return;
-        try { SendMouseFlag(MOUSEEVENTF_RIGHTUP); }
-        catch { /* swallow — we're already on a failure path */ }
-        finally { MarkHeld(false); }
+        try
+        {
+            if (SendMouseFlag(MOUSEEVENTF_RIGHTUP))
+                MarkHeld(false);
+        }
+        catch { /* swallow; we're already on a failure path */ }
     }
 
-    private static void SendMouseFlag(uint flag)
+    private static bool SendMouseFlag(uint flag)
     {
         var inputs = new INPUT[1];
         inputs[0].type = INPUT_MOUSE;
@@ -50,6 +57,6 @@ internal static class InputInjector
             time = 0,
             dwExtraInfo = InjectionTag,
         };
-        _ = SendInput(1, inputs, INPUT.Size);
+        return SendInput(1, inputs, INPUT.Size) == 1;
     }
 }

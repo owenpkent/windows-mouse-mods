@@ -1,3 +1,5 @@
+using System.Security.AccessControl;
+using System.Security.Principal;
 using WindowsMouseMods.Native;
 using WindowsMouseMods.UI;
 
@@ -5,8 +7,10 @@ namespace WindowsMouseMods;
 
 internal static class Program
 {
-    private const string MutexName = "Global\\WindowsMouseMods.SingleInstance";
-    private const string ShowEventName = "Global\\WindowsMouseMods.Show";
+    // Local\ scopes the kernel objects to the current logon session, preventing cross-session
+    // squatting and unauthenticated cross-session signaling. See docs/security-review.md (H1).
+    private const string MutexName = "Local\\WindowsMouseMods.SingleInstance";
+    private const string ShowEventName = "Local\\WindowsMouseMods.Show";
 
     private static Mutex? _singleInstanceMutex;
     private static EventWaitHandle? _showEvent;
@@ -22,14 +26,30 @@ internal static class Program
     {
         if (args.Length > 0 && args[0] == "--preview-icons")
         {
-            UI.PreviewIcons.WriteToDisk(args.Length > 1 ? args[1] : "preview");
+            var dir = args.Length > 1 ? args[1] : "preview";
+            if (!IsSafeRelativePath(dir))
+            {
+                Console.Error.WriteLine(
+                    "--preview-icons requires a relative path with no '..' segments. " +
+                    "Absolute paths and traversal are rejected. See docs/security-review.md (M4).");
+                return;
+            }
+            UI.PreviewIcons.WriteToDisk(dir);
             return;
         }
 
-        _singleInstanceMutex = new Mutex(initiallyOwned: true, MutexName, out var createdNew);
+        // ACL the named objects to the current user only. Defense-in-depth on top of the Local\
+        // namespace: even other processes running as the same user in the same session need to
+        // be granted access explicitly. See docs/security-review.md (H2).
+        var sid = WindowsIdentity.GetCurrent().User
+            ?? throw new InvalidOperationException("Cannot resolve current user SID.");
+
+        var mutexSec = new MutexSecurity();
+        mutexSec.AddAccessRule(new MutexAccessRule(sid, MutexRights.FullControl, AccessControlType.Allow));
+        _singleInstanceMutex = MutexAcl.Create(initiallyOwned: true, MutexName, out var createdNew, mutexSec);
         if (!createdNew)
         {
-            // Another instance owns the mutex — signal it to show its window, then exit.
+            // Another instance owns the mutex; signal it to show its window, then exit.
             try
             {
                 if (EventWaitHandle.TryOpenExisting(ShowEventName, out var existing))
@@ -55,13 +75,17 @@ internal static class Program
         {
             // Release first in case the exception came from the controller while locked.
             InputInjector.EmergencyRelease();
-            MessageBox.Show(e.Exception.ToString(), "Windows Mouse Mods — error",
+            MessageBox.Show(e.Exception.ToString(), "Windows Mouse Mods - error",
                 MessageBoxButtons.OK, MessageBoxIcon.Error);
         };
 
         try
         {
-            _showEvent = new EventWaitHandle(false, EventResetMode.AutoReset, ShowEventName);
+            var eventSec = new EventWaitHandleSecurity();
+            eventSec.AddAccessRule(new EventWaitHandleAccessRule(sid,
+                EventWaitHandleRights.FullControl, AccessControlType.Allow));
+            _showEvent = EventWaitHandleAcl.Create(false, EventResetMode.AutoReset,
+                ShowEventName, out _, eventSec);
             _uiSyncContext = new WindowsFormsSynchronizationContext();
             StartShowListener();
 
@@ -79,6 +103,18 @@ internal static class Program
             _singleInstanceMutex.ReleaseMutex();
             _singleInstanceMutex.Dispose();
         }
+    }
+
+    private static bool IsSafeRelativePath(string path)
+    {
+        if (string.IsNullOrEmpty(path)) return false;
+        if (Path.IsPathRooted(path)) return false;
+        var segments = path.Split(['/', '\\'], StringSplitOptions.RemoveEmptyEntries);
+        foreach (var seg in segments)
+        {
+            if (seg == "..") return false;
+        }
+        return true;
     }
 
     private static void StartShowListener()

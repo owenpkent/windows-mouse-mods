@@ -113,12 +113,20 @@ internal sealed class RightClickLockController : IDisposable
     {
         if (_locked)
         {
-            // Tap-to-release: suppress this DOWN, also swallow the matching UP, send a real UP
-            // to free the synthetic-held button.
-            e.Suppress = true;
-            _swallowNextRealRmbUp = true;
-            Log("Physical RMB DOWN while locked -> releasing (suppress DOWN, swallow next UP).");
-            ReleaseLockIfHeld("tap-to-release");
+            // Tap-to-release: try to send the synthetic UP first. Only suppress the physical
+            // DOWN and arm the UP-swallow flag if the OS accepted our release. If SendInput
+            // fails, we let the physical DOWN/UP through so the OS has a chance to correct
+            // its belief about the button state. See docs/security-review.md (M6).
+            if (TryReleaseLock("tap-to-release"))
+            {
+                e.Suppress = true;
+                _swallowNextRealRmbUp = true;
+                Log("Physical RMB DOWN while locked -> releasing (suppress DOWN, swallow next UP).");
+            }
+            else
+            {
+                Log("Physical RMB DOWN while locked -> SendInput failed; passing physical events through.");
+            }
             return;
         }
 
@@ -169,6 +177,25 @@ internal sealed class RightClickLockController : IDisposable
         _locked = false;
         Log($"Lock released ({reason}).");
         LockStateChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>
+    /// Tries to release the lock by sending a synthetic RMB UP. Returns true only if the
+    /// OS accepted the event. On failure the lock state is left intact so callers can
+    /// retry or fall back to passing physical events through.
+    /// </summary>
+    private bool TryReleaseLock(string reason)
+    {
+        if (!_locked) return true;
+        if (!InputInjector.RightUp())
+        {
+            Log($"Lock release failed ({reason}): SendInput returned 0.");
+            return false;
+        }
+        _locked = false;
+        Log($"Lock released ({reason}).");
+        LockStateChanged?.Invoke(this, EventArgs.Empty);
+        return true;
     }
 
     private void Log(string message) => DebugMessage?.Invoke(this, message);

@@ -10,6 +10,12 @@ namespace WindowsMouseMods.Hooks;
 /// </summary>
 internal sealed class LowLevelMouseHook : IDisposable
 {
+    private const int MaxLoggedErrors = 5;
+    private static int _errorCount;
+    private static readonly string ErrorLogPath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "WindowsMouseMods", "hook-errors.log");
+
     private readonly HookProc _proc;
     private IntPtr _hookId = IntPtr.Zero;
 
@@ -39,7 +45,7 @@ internal sealed class LowLevelMouseHook : IDisposable
 
     private IntPtr HookCallback(int nCode, IntPtr wParam, IntPtr lParam)
     {
-        // Never let an exception escape the hook proc — Windows will silently
+        // Never let an exception escape the hook proc; Windows will silently
         // unhook us and the app loses its core functionality with no visible failure.
         try
         {
@@ -53,12 +59,34 @@ internal sealed class LowLevelMouseHook : IDisposable
                     return 1;
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // Swallow. We can't surface this from the hook thread; the controller's
-            // debug stream is the right place to learn about it if it ever fires.
+            // Never let an exception escape the hook proc; Windows will silently unhook us
+            // and the user has no way to recover other than restarting the app. We also can't
+            // surface the exception inline (no UI thread guarantee, can't block the hook),
+            // so capture up to the first MaxLoggedErrors instances asynchronously to a file
+            // under %LocalAppData%\WindowsMouseMods\hook-errors.log. See docs/security-review.md (M1).
+            LogHookErrorAsync(ex);
         }
         return CallNextHookEx(_hookId, nCode, wParam, lParam);
+    }
+
+    private static void LogHookErrorAsync(Exception ex)
+    {
+        if (Interlocked.Increment(ref _errorCount) > MaxLoggedErrors) return;
+        var snapshot = $"[{DateTime.Now:O}] {ex}{Environment.NewLine}";
+        Task.Run(() =>
+        {
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(ErrorLogPath)!);
+                File.AppendAllText(ErrorLogPath, snapshot);
+            }
+            catch
+            {
+                // Best-effort. If we can't write the log we have no other recourse.
+            }
+        });
     }
 
     public void Dispose() => Uninstall();

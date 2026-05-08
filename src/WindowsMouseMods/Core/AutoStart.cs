@@ -20,6 +20,16 @@ internal static class AutoStart
         if (enabled)
         {
             var exe = Environment.ProcessPath ?? System.Reflection.Assembly.GetExecutingAssembly().Location;
+            // Reject paths that cannot be safely round-tripped through the Run-key shell parser.
+            // A literal '"' or control character would let an attacker who controls the binary
+            // location confuse the parser into resolving a different executable on next logon.
+            // See docs/security-review.md (M3).
+            foreach (var ch in exe)
+            {
+                if (ch == '"' || char.IsControl(ch))
+                    throw new InvalidOperationException(
+                        $"Executable path contains characters that cannot be safely written to the Run registry key: {exe}");
+            }
             key.SetValue(ValueName, $"\"{exe}\"");
         }
         else
