@@ -12,6 +12,8 @@ internal sealed class MainForm : Form
 
     private readonly CheckBox _enabledCheckbox = new() { Text = "Enabled", AutoSize = true };
     private readonly NumericUpDown _holdMs = new() { Minimum = 100, Maximum = 3000, Increment = 50, Value = 500, Width = 80 };
+    private readonly CheckBox _moveCancelCheckbox = new() { Text = "Cancel arming if mouse moves during hold", AutoSize = true };
+    private readonly NumericUpDown _moveCancelPx = new() { Minimum = 1, Maximum = 50, Increment = 1, Value = 5, Width = 60 };
     private readonly CheckBox _autoStartCheckbox = new() { Text = "Start with Windows", AutoSize = true };
     private readonly CheckBox _startMinimizedCheckbox = new() { Text = "Start minimized to tray", AutoSize = true };
     private readonly Label _statusLabel = new() { AutoSize = true, ForeColor = SystemColors.GrayText };
@@ -72,10 +74,21 @@ internal sealed class MainForm : Form
         root.Controls.Add(_enabledCheckbox);
 
         var clickGroup = new GroupBox { Text = "ClickLock", AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new Padding(8), Margin = new Padding(0, 0, 0, 8) };
-        var clickRow = new FlowLayoutPanel { AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, FlowDirection = FlowDirection.LeftToRight, WrapContents = false };
-        clickRow.Controls.Add(new Label { Text = "Hold to lock (ms):", AutoSize = true, Margin = new Padding(0, 6, 6, 0) });
-        clickRow.Controls.Add(_holdMs);
-        clickGroup.Controls.Add(clickRow);
+        var clickContent = new FlowLayoutPanel { FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink };
+
+        var holdRow = new FlowLayoutPanel { AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, FlowDirection = FlowDirection.LeftToRight, WrapContents = false };
+        holdRow.Controls.Add(new Label { Text = "Hold to lock (ms):", AutoSize = true, Margin = new Padding(0, 6, 6, 0) });
+        holdRow.Controls.Add(_holdMs);
+        clickContent.Controls.Add(holdRow);
+
+        clickContent.Controls.Add(_moveCancelCheckbox);
+
+        var moveThresholdRow = new FlowLayoutPanel { AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, FlowDirection = FlowDirection.LeftToRight, WrapContents = false };
+        moveThresholdRow.Controls.Add(new Label { Text = "Movement threshold (px):", AutoSize = true, Margin = new Padding(16, 6, 6, 0) });
+        moveThresholdRow.Controls.Add(_moveCancelPx);
+        clickContent.Controls.Add(moveThresholdRow);
+
+        clickGroup.Controls.Add(clickContent);
         root.Controls.Add(clickGroup);
 
         var startupGroup = new GroupBox { Text = "Startup", AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new Padding(8), Margin = new Padding(0, 0, 0, 8) };
@@ -103,6 +116,7 @@ internal sealed class MainForm : Form
         _saveButton.Click += (_, _) => Save();
         _closeButton.Click += (_, _) => Close();
         _debugButton.Click += (_, _) => _onShowDebug();
+        _moveCancelCheckbox.CheckedChanged += (_, _) => _moveCancelPx.Enabled = _moveCancelCheckbox.Checked;
         FormClosing += OnFormClosing;
     }
 
@@ -110,6 +124,9 @@ internal sealed class MainForm : Form
     {
         _enabledCheckbox.Checked = _settings.Enabled;
         _holdMs.Value = Math.Clamp(_settings.ClickLockHoldMs, (int)_holdMs.Minimum, (int)_holdMs.Maximum);
+        _moveCancelCheckbox.Checked = _settings.MoveCancelEnabled;
+        _moveCancelPx.Value = Math.Clamp(_settings.MoveCancelPixels, (int)_moveCancelPx.Minimum, (int)_moveCancelPx.Maximum);
+        _moveCancelPx.Enabled = _moveCancelCheckbox.Checked;
         _autoStartCheckbox.Checked = AutoStart.IsEnabled();
         _startMinimizedCheckbox.Checked = _settings.StartMinimized;
     }
@@ -128,6 +145,8 @@ internal sealed class MainForm : Form
     {
         _settings.Enabled = _enabledCheckbox.Checked;
         _settings.ClickLockHoldMs = (int)_holdMs.Value;
+        _settings.MoveCancelEnabled = _moveCancelCheckbox.Checked;
+        _settings.MoveCancelPixels = (int)_moveCancelPx.Value;
         _settings.StartMinimized = _startMinimizedCheckbox.Checked;
         _settings.AutoStartWithWindows = _autoStartCheckbox.Checked;
 

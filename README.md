@@ -58,6 +58,8 @@ Launch `WindowsMouseMods.exe`. The settings window opens (unless you've opted in
 
 If you let go **before** the threshold, the click passes through normally — it's just a regular right-click.
 
+**Move-cancel:** if the cursor moves more than the configured threshold (default 5 px) during the hold, arming is cancelled — so a press-and-drag turns into a normal drag instead of a sticky lock. Toggle off in settings to disable.
+
 ## Debug window
 
 Open from the tray menu (**Show debug window**). It shows:
@@ -74,6 +76,8 @@ The window remembers itself across launches — if it was open when you exit, it
 | --- | --- |
 | Enabled | Master on/off without quitting the app |
 | Hold to lock (ms) | ClickLock threshold. Default 500, range 100–3000 |
+| Cancel arming if mouse moves during hold | Mirrors Windows ClickLock — moving the cursor past the threshold during the hold cancels arming. Default on |
+| Movement threshold (px) | Pixel distance before move-cancel triggers. Default 5, range 1–50 |
 | Start with Windows | Adds/removes a `HKCU\...\Run` entry |
 | Start minimized to tray | If unchecked, settings window opens on launch |
 
@@ -102,7 +106,9 @@ windows-mouse-mods/
     └── UI/
         ├── TrayApplicationContext.cs  # NotifyIcon + context menu
         ├── MainForm.cs                # settings window
-        └── DebugForm.cs               # live debug window
+        ├── DebugForm.cs               # live debug window
+        ├── TrayIcons.cs               # GDI-rendered idle/locked tray icons
+        └── PreviewIcons.cs            # dev-only: dump icons to PNG via --preview-icons
 ```
 
 ## Implementation notes

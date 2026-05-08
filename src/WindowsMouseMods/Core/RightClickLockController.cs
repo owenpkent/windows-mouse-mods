@@ -21,6 +21,8 @@ internal sealed class RightClickLockController : IDisposable
     private bool _physicalRmbDown;
     private bool _clickLockArmed;
     private bool _swallowNextRealRmbUp;
+    private bool _moveCancelled;
+    private NativeMethods.POINT _rmbDownPos;
 
     public bool Locked => _locked;
     public AppSettings Settings => _settings;
@@ -82,6 +84,28 @@ internal sealed class RightClickLockController : IDisposable
             case WM_RBUTTONUP:
                 HandlePhysicalRmbUp(e);
                 break;
+            case WM_MOUSEMOVE:
+                HandlePhysicalMove(e);
+                break;
+        }
+    }
+
+    private void HandlePhysicalMove(MouseHookEventArgs e)
+    {
+        // Only relevant during the brief arming window: RMB physically held, timer still running,
+        // not yet armed, not already cancelled by an earlier move.
+        if (!_physicalRmbDown || _clickLockArmed || _moveCancelled) return;
+        if (!_settings.MoveCancelEnabled) return;
+
+        var dx = e.Data.pt.x - _rmbDownPos.x;
+        var dy = e.Data.pt.y - _rmbDownPos.y;
+        var distSq = dx * dx + dy * dy;
+        var threshold = _settings.MoveCancelPixels;
+        if (distSq > threshold * threshold)
+        {
+            _moveCancelled = true;
+            _clickLockTimer.Stop();
+            Log($"Move-cancel: cursor moved past {threshold} px during hold; arming cancelled.");
         }
     }
 
@@ -100,6 +124,8 @@ internal sealed class RightClickLockController : IDisposable
 
         _physicalRmbDown = true;
         _clickLockArmed = false;
+        _moveCancelled = false;
+        _rmbDownPos = e.Data.pt;
         _clickLockTimer.Stop();
         _clickLockTimer.Interval = Math.Max(50, _settings.ClickLockHoldMs);
         _clickLockTimer.Start();

@@ -18,8 +18,14 @@ internal static class Program
     internal static TrayApplicationContext? ActiveContext { get; set; }
 
     [STAThread]
-    private static void Main()
+    private static void Main(string[] args)
     {
+        if (args.Length > 0 && args[0] == "--preview-icons")
+        {
+            UI.PreviewIcons.WriteToDisk(args.Length > 1 ? args[1] : "preview");
+            return;
+        }
+
         _singleInstanceMutex = new Mutex(initiallyOwned: true, MutexName, out var createdNew);
         if (!createdNew)
         {

@@ -26,6 +26,8 @@ Windows tray utility (.NET 9 WinForms) that "locks" the right mouse button held 
   - `TrayApplicationContext` — runs as the `ApplicationContext`; owns the `NotifyIcon`, the controller, the settings form, and the debug form.
   - `MainForm` — settings window. Title-bar close raises a `TaskDialog` asking Minimize / Exit / Cancel.
   - `DebugForm` — live event stream wired to `controller.DebugMessage`. Bounded at 1000 lines, with Pause / Clear / Auto-scroll.
+  - `TrayIcons` — GDI+ renders the idle and locked tray icons at runtime (mouse silhouette with right-button color tint). HICONs cloned and originals destroyed to avoid GDI-handle leaks.
+  - `PreviewIcons` — dev-only. Run the binary with `--preview-icons [outDir]` to dump 32x32 native renders plus 4x nearest-neighbor upscales for visual review.
 
 ## Important invariants
 
@@ -36,6 +38,7 @@ Windows tray utility (.NET 9 WinForms) that "locks" the right mouse button held 
 - **Window-close behavior**: `MainForm.OnFormClosing` runs a `TaskDialog` (Minimize / Exit / Cancel) for `CloseReason.UserClosing`. The `_closeResolved` flag short-circuits re-entry when the dialog programmatically closes the form. Other close reasons (system shutdown, etc.) pass through untouched.
 - **Debug window persistence**: `AppSettings.ShowDebugOnStartup` is set when the user opens the debug window and cleared when they close it. On launch, if the flag is on, the window auto-reopens.
 - **Hot path discipline**: the hook callback should not allocate or block. `RightClickLockController.Log()` only fires an event handler — strings are formatted via interpolation, but stay short. The debug form does its own marshaling via `BeginInvoke`.
+- **Move-cancel window**: only between RMB DOWN and the timer firing. Once `_clickLockArmed` is true, mouse motion no longer prevents the lock. `_moveCancelled` short-circuits subsequent move checks within the same hold so we don't recompute distances after the decision is made.
 
 ## Build / run
 

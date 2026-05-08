@@ -36,6 +36,9 @@ desktop.ini
 ## Crash dumps
 *.stackdump
 
+## Icon previews from --preview-icons
+preview/
+
 ## NuGet
 *.nupkg
 .nuget/

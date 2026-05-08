@@ -10,6 +10,12 @@ public sealed class AppSettings
     /// <summary>Hold duration in milliseconds before ClickLock engages.</summary>
     public int ClickLockHoldMs { get; set; } = 500;
 
+    /// <summary>Cancel arming if the cursor moves more than <see cref="MoveCancelPixels"/> px during the hold.</summary>
+    public bool MoveCancelEnabled { get; set; } = true;
+
+    /// <summary>Movement threshold (px) that cancels arming when <see cref="MoveCancelEnabled"/> is on.</summary>
+    public int MoveCancelPixels { get; set; } = 5;
+
     public bool StartMinimized { get; set; } = false;
     public bool AutoStartWithWindows { get; set; } = false;
 
@@ -64,5 +70,8 @@ public sealed class AppSettings
     {
         if (ClickLockHoldMs < 100) ClickLockHoldMs = 100;
         else if (ClickLockHoldMs > 3000) ClickLockHoldMs = 3000;
+
+        if (MoveCancelPixels < 1) MoveCancelPixels = 1;
+        else if (MoveCancelPixels > 50) MoveCancelPixels = 50;
     }
 }
