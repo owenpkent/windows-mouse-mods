@@ -127,7 +127,9 @@ A user-mode implementation will always carry constraints that a native one does 
 
 ## License and contact
 
-The author offers a perpetual, royalty-free license to use any portion of this repository (source, documentation, mockups) in a native Windows implementation, with or without attribution. A formal `LICENSE` file for non-Microsoft uses is pending; for now, contact the author.
+This repository is released under the [MIT License](LICENSE) for general use. Separately, the author offers a perpetual, royalty-free license to use any portion of this repository (source, documentation, mockups) in a native Windows implementation, with or without attribution.
+
+To report a security issue, see [SECURITY.md](SECURITY.md).
 
 - **Author:** Owen Kent
 - **LinkedIn:** [linkedin.com/in/owenpkent](https://www.linkedin.com/in/owenpkent/)
