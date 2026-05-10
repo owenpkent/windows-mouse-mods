@@ -1,0 +1,40 @@
+# Default: let git detect text vs binary, normalize text to LF in the index.
+* text=auto
+
+# C# / .NET project files: Visual Studio convention is CRLF on Windows.
+*.cs        text eol=crlf
+*.csproj    text eol=crlf
+*.sln       text eol=crlf -merge
+*.manifest  text eol=crlf
+*.config    text eol=crlf
+*.resx      text eol=crlf
+
+# Windows scripts.
+*.ps1       text eol=crlf
+*.psm1      text eol=crlf
+*.psd1      text eol=crlf
+*.bat       text eol=crlf
+*.cmd       text eol=crlf
+
+# Cross-platform / web-rendered text: keep LF.
+*.md            text eol=lf
+*.yml           text eol=lf
+*.yaml          text eol=lf
+*.json          text eol=lf
+*.sh            text eol=lf
+LICENSE         text eol=lf
+.gitignore      text eol=lf
+.gitattributes  text eol=lf
+
+# Binary assets: never line-end translate.
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.bmp   binary
+*.ico   binary
+*.exe   binary
+*.dll   binary
+*.pdb   binary
+*.lnk   binary
+*.zip   binary
