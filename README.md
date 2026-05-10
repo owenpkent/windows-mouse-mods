@@ -103,6 +103,7 @@ windows-right-click-lock/
 │   ├── Core/          # state machine, settings, autostart
 │   └── UI/            # tray context, settings form, live debug stream
 └── scripts/
+    ├── release.ps1                    # build + EV sign + (optional) GitHub Release
     ├── mockup-mouse-properties.ps1    # generator for the proposal mockup
     └── create-shortcut.ps1            # dev helper
 ```

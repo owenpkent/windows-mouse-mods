@@ -18,7 +18,7 @@ This document records adversarial findings against the codebase as of commit `de
 | M4 | Medium | `--preview-icons [outDir]` accepts unrestricted output path | Fixed |
 | M5 | Medium | Settings file lacks integrity check | Accepted (low residual risk) |
 | M6 | Medium | TOCTOU on tap-to-release if `SendInput` fails | Fixed |
-| L1 | Low | No code signing | Tracked separately |
+| L1 | Low | No code signing | Fixed (v0.1.0) |
 | L2 | Low | Full exception text shown in MessageBox | Accepted |
 | L3 | Low | Hook event subscription not unsubscribed in `Dispose` | Accepted |
 | L4 | Low | Debug window leaks fine-grained mouse activity | Accepted (opt-in) |
@@ -98,8 +98,8 @@ When the user tapped RMB to release the lock, the controller did three things in
 
 ## Low (accepted)
 
-### L1. No code signing
-The shipping binary is unsigned. SmartScreen will warn on first run; some EDR products may quarantine. Operational concern, not a code-level vulnerability. A signed build with an EV cert is tracked separately as a release-engineering task.
+### L1. No code signing (fixed in v0.1.0)
+Earlier builds shipped unsigned: SmartScreen warned on first run and some EDR products quarantined. As of v0.1.0, shipping binaries are signed with the OK Studio Inc. EV code-signing certificate (Sectigo EV CA chain) and RFC 3161 timestamped via DigiCert. SmartScreen reputation still warms up per binary, so testers may see "Windows protected your PC" on the first few downloads of any specific release; the warning resolves to a publisher-named prompt (and eventually disappears) as downloads accumulate. Build pipeline: `scripts/release.ps1`.
 
 ### L2. Full `Exception.ToString()` in MessageBox
 `Application.ThreadException` shows the full exception including stack and assembly paths. The binary is open-source so the disclosure is bounded; no secrets are reachable. Accepted.

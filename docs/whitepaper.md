@@ -196,9 +196,12 @@ The DebugForm subscribes to a separate `DebugMessage` string event and marshals 
 Concrete additions on the roadmap, ordered by current usefulness:
 
 1. **Panic hotkey.** System-wide key (e.g. `Ctrl+Alt+R`) that force-releases regardless of state.
-2. **GitHub Release artifact.** Workflow that publishes a single-file `.exe` on tag push.
-3. **Per-process allowlist/blocklist.** Only auto-engage in selected foreground processes.
-4. **Optional file logging.** Persistent debug output for after-the-fact diagnosis.
+2. **Per-process allowlist/blocklist.** Only auto-engage in selected foreground processes.
+3. **Optional file logging.** Persistent debug output for after-the-fact diagnosis.
+
+Recently completed:
+
+- **GitHub Release artifact.** `scripts/release.ps1` publishes a signed single-file `.exe` and creates a GitHub Release on `-Tag`. Initial release: v0.1.0.
 
 ## References
 

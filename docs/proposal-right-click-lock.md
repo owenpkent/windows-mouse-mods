@@ -37,7 +37,7 @@ This is precisely the behavior many users want for the **secondary** button. The
 
 - **AutoHotkey scripts.** Functional but require user-installed runtimes, are flagged by certain anti-cheat systems, and require admin privileges to interact with elevated windows.
 - **Per-game rebinding.** Only a subset of games expose "toggle camera" as a discrete bindable action.
-- **Third-party utilities** (including this project's reference implementation). Operate via `WH_MOUSE_LL` + `SendInput` injection, are unsigned by default, may be flagged by Defender SmartScreen, and depend on hook ordering that can be disrupted by other utilities or system updates.
+- **Third-party utilities** (including this project's reference implementation). Operate via `WH_MOUSE_LL` + `SendInput` injection, must each warm up SmartScreen reputation per binary (even when signed with an EV certificate), and depend on hook ordering that can be disrupted by other utilities or system updates.
 
 None of these are appropriate for the broad user base who would benefit. The feature belongs in the OS.
 
@@ -188,7 +188,7 @@ If the feature does not ship natively, the project will pursue the following int
 
 1. **Visual mimicry.** Restyle the settings form to match the Mouse Properties dialog (Segoe UI Variable, card sections, exact button placement). Adds a Start-menu shortcut so Win+S "mouse" surfaces the tool.
 2. **Custom Control Panel applet (`.cpl`).** A C++ shim DLL implementing `CPlApplet`, registered under `HKCU\Software\Microsoft\Windows\CurrentVersion\Control Panel\Cpls`, surfacing "Right-Click Lock" alongside "Mouse" in classic Control Panel and in Settings search.
-3. **Code signing** (EV cert) to clear SmartScreen and reduce AV friction.
+3. **Code signing.** Done as of v0.1.0: shipping binaries are signed with the OK Studio Inc. EV code-signing certificate to clear SmartScreen reputation as adoption grows and to reduce AV friction.
 4. **Single-instance named-pipe IPC** so the CPL can surface the running tray instance's settings form rather than launching a duplicate.
 
 This plan is documented in detail in the project's internal integration plan and is offered here as context: the project will ship something either way; native is strictly better for users.
