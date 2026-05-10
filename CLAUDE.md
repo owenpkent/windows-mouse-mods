@@ -24,7 +24,7 @@ Windows tray utility (.NET 9 WinForms) that "locks" the right mouse button held,
   - `AutoStart` toggles the `HKCU\...\Run` key.
 - **`src/WindowsRightClickLock/UI/`**
   - `TrayApplicationContext`: runs as the `ApplicationContext`; owns the `NotifyIcon`, the controller, the settings form, and the debug form.
-  - `MainForm`: settings window. Title-bar close raises a `TaskDialog` asking Minimize / Exit / Cancel.
+  - `MainForm`: settings window. Hold-to-lock is a 10-stop `TrackBar` (Short to Long) with a live ms readout. Title-bar close, the Close button, and Alt+F4 all just hide the form to tray; Exit lives only on the tray menu.
   - `DebugForm`: live event stream wired to `controller.DebugMessage`. Bounded at 1000 lines, with Pause / Clear / Auto-scroll.
   - `TrayIcons`: GDI+ renders the idle and locked tray icons at runtime (mouse silhouette with right-button color tint). HICONs cloned and originals destroyed to avoid GDI-handle leaks.
   - `PreviewIcons`: dev-only. Run the binary with `--preview-icons [outDir]` to dump 32x32 native renders plus 4x nearest-neighbor upscales for visual review.
