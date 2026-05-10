@@ -185,8 +185,14 @@ during the warm-up window, click *More info* then *Run anyway*.
 Run the .exe. Tray icon turns red while a right-click is held by the lock.
 "@
     Write-Host "[Release] Creating GitHub Release..."
-    gh release create $tagName $artifact --title "$tagName" --notes $notes
-    if ($LASTEXITCODE -ne 0) { throw "gh release create failed." }
+    $notesFile = New-TemporaryFile
+    try {
+        Set-Content -Path $notesFile -Value $notes -Encoding utf8
+        gh release create $tagName $artifact --title "$tagName" --notes-file $notesFile
+        if ($LASTEXITCODE -ne 0) { throw "gh release create failed." }
+    } finally {
+        Remove-Item $notesFile -ErrorAction SilentlyContinue
+    }
 }
 
 Write-Host ''
