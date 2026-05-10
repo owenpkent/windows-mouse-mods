@@ -23,7 +23,7 @@ If you are evaluating whether this should ship in Windows, start here:
 1. **[docs/proposal-right-click-lock.md](docs/proposal-right-click-lock.md)** is the formal proposal: problem statement, UX mockup, implementation paths inside the OS input stack, risk analysis, success metrics, and license offer.
 2. **[docs/whitepaper.md](docs/whitepaper.md)** documents the design rationale, the state machine, the crash-safety model, performance characteristics, and compatibility constraints. Useful as a test corpus for validating a native implementation.
 3. **[docs/security-review.md](docs/security-review.md)** is an adversarial security audit with applied fixes. The reference implementation is held to a bar consistent with code that could ship in Windows.
-4. **Build and run the reference implementation** (instructions below) to validate the UX and the move-cancel safety overlay against your own gesture set.
+4. **Run the reference implementation** to validate the UX and the move-cancel safety overlay against your own gesture set. The fastest path is to grab the signed `.exe` from [Releases](https://github.com/owenpkent/windows-right-click-lock/releases/latest); build instructions are also below.
 
 The author offers a perpetual, royalty-free license to the reference implementation, whitepaper, and UX mockups for any native Windows implementation, with or without attribution. Contact details are at the end of the proposal document.
 
@@ -42,6 +42,16 @@ The full end-user walkthrough is in [docs/usage.md](docs/usage.md).
 - Small layered codebase across Native, Hooks, Core, UI.
 - Single-instance enforced via per-session named mutex with an explicit DACL scoped to the current user SID.
 - System tray resident with idle and locked-state icons rendered at runtime.
+
+### Download
+
+Signed Windows builds are published on [Releases](https://github.com/owenpkent/windows-right-click-lock/releases/latest). The release asset is a single self-contained `.exe`, signed with the OK Studio Inc. EV code-signing certificate. No installer, no admin prompt, no .NET runtime install required: download, double-click, and the tray icon appears. The first launch extracts the bundled runtime to `%TEMP%\.net\` (one-time, takes a few seconds); subsequent launches are immediate.
+
+Each release includes the SHA-256 of the asset in the release notes. To verify before running:
+
+```powershell
+Get-FileHash .\WindowsRightClickLock-0.1.0.exe -Algorithm SHA256
+```
 
 ### Build
 
@@ -65,6 +75,13 @@ dotnet publish src/WindowsRightClickLock/WindowsRightClickLock.csproj `
 ```
 
 The published `.exe` lands in `src/WindowsRightClickLock/bin/Release/net9.0-windows/win-x64/publish/`.
+
+For a signed, self-contained release build (single `.exe` testers can run without installing the .NET runtime), use the release script. Run from a non-elevated PowerShell with the EV signing eToken plugged in:
+
+```powershell
+pwsh scripts/release.ps1            # build + sign, drops release/WindowsRightClickLock-<ver>.exe
+pwsh scripts/release.ps1 -Tag       # also git-tags vX.Y.Z and creates a GitHub Release
+```
 
 ### Run
 
